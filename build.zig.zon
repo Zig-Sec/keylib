@@ -1,6 +1,6 @@
 .{
     .name = .keylib,
-    .version = "0.6.0",
+    .version = "0.6.1",
     .fingerprint = 0xc25aabcf9323b699,
     .dependencies = .{
         .zbor = .{
