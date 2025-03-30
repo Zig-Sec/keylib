@@ -4,17 +4,16 @@
     .fingerprint = 0xc25aabcf9323b699,
     .dependencies = .{
         .zbor = .{
-            .url = "https://github.com/r4gus/zbor/archive/refs/tags/0.17.0.tar.gz",
-            .hash = "12207f356790fb95b783d053464660a501d0cb8f1a7ad04ceeb862fccc02b982d752",
-            //.path = "../zbor",
+            .url = "https://github.com/r4gus/zbor/archive/refs/tags/0.17.2.tar.gz",
+            .hash = "zbor-0.17.0-kr-CoHIkAwCy2WhoS6MgwSvyQsLWzzNy6a7UTHqMPMmO",
         },
         .hidapi = .{
             .url = "https://github.com/r4gus/hidapi/archive/refs/tags/0.15.0.tar.gz",
             .hash = "1220fcaee19f1bf69764c808ea7292062ebf4ec55f585ef298667c993e54bfbc8cb0",
         },
         .uuid = .{
-            .url = "https://github.com/r4gus/uuid-zig/archive/refs/tags/0.3.0.tar.gz",
-            .hash = "12207f6a93a8f73155d1af391980124feb6bab344931e11f62e42e6ac825c8d59ff1",
+            .url = "https://github.com/r4gus/uuid-zig/archive/refs/tags/0.3.1.tar.gz",
+            .hash = "uuid-0.3.0-oOieIYF1AAA_BtE7FvVqqTn5uEYTvvz7ycuVnalCOf8C",
         },
     },
     .paths = .{
