@@ -1,3 +1,10 @@
+# keylib
+
+![GitHub](https://img.shields.io/github/license/r4gus/keylib?style=flat-square)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/r4gus/keylib/main.yml?style=flat-square)
+![GitHub all releases](https://img.shields.io/github/downloads/r4gus/keylib/total?style=flat-square)
+<noscript><a href="https://liberapay.com/r4gus/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a></noscript>
+
 FIDO2 compatible authenticator and client library written in [Zig](https://ziglang.org/). The authenticator part requires __zero dynamic allocations__.
 
 > We track the latest stable release of Zig (`0.12.0`)
