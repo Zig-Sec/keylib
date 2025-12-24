@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -43,13 +44,16 @@ pub fn build(b: *std.Build) !void {
     });
     try b.modules.put(b.dupe("keylib"), keylib_module);
 
-    const uhid_module = b.addModule("uhid", .{
-        .root_source_file = b.path("bindings/linux/src/uhid.zig"),
-        .imports = &.{},
-        .target = target,
-        .optimize = optimize,
-    });
-    try b.modules.put(b.dupe("uhid"), uhid_module);
+    const uhid_module = if (target.result.os.tag == .linux) blk: {
+        const uhid_module = b.addModule("uhid", .{
+            .root_source_file = b.path("bindings/linux/src/uhid.zig"),
+            .imports = &.{},
+            .target = target,
+            .optimize = optimize,
+        });
+        try b.modules.put(b.dupe("uhid"), uhid_module);
+        break :blk uhid_module;
+    } else null;
 
     // Re-export zbor module
     try b.modules.put(b.dupe("zbor"), zbor_module);
@@ -98,7 +102,9 @@ pub fn build(b: *std.Build) !void {
         .root_module = authenticator_example_mod,
     });
     authenticator_example.root_module.addImport("keylib", keylib_module);
-    authenticator_example.root_module.addImport("uhid", uhid_module);
+    if (uhid_module) |mod| {
+        authenticator_example.root_module.addImport("uhid", mod);
+    }
     authenticator_example.root_module.addImport("zbor", zbor_dep.module("zbor"));
     authenticator_example.linkLibC();
 
@@ -126,51 +132,27 @@ pub fn build(b: *std.Build) !void {
     //);
     //b.installArtifact(c_bindings);
 
-    const uhid_mod = b.createModule(.{
-        .root_source_file = b.path("bindings/linux/src/uhid-c.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const uhid = b.addLibrary(.{
-        .linkage = .static,
-        .name = "uhid",
-        .root_module = uhid_mod,
-    });
-    uhid.linkLibC();
-    uhid.installHeadersDirectory(
-        b.path("bindings/linux/include"),
-        "keylib",
-        .{
-            .exclude_extensions = &.{},
-            .include_extensions = &.{".h"},
-        },
-    );
-    b.installArtifact(uhid);
-
-    // Python bindings
-    // ------------------------------------------------
-
-    // TODO: Figure out how to compile the cython code myself
-
-    //const generate_uhid_bindings = b.addSystemCommand(
-    //    &[_][]const u8{ "cython3", "bindings/python/uhidmodule.pyx", "-I", "bindings/linux/include", "-o", "bindings/python/uhidmodule.c", "-3" },
-    //);
-
-    //const uhid_py = b.addSharedLibrary(.{
-    //    .name = "uhid.linux",
-    //    .root_source_file = .{ .path = "bindings/python/uhidmodule.c" },
+    //const uhid_mod = b.createModule(.{
+    //    .root_source_file = b.path("bindings/linux/src/uhid-c.zig"),
     //    .target = target,
     //    .optimize = optimize,
     //});
-    //uhid_py.step.dependOn(&generate_uhid_bindings.step);
-    //uhid_py.linkLibrary(uhid);
-    //uhid_py.linkSystemLibrary("python3");
-    //uhid_py.linkLibC();
-    //b.installArtifact(uhid_py);
 
-    //const build_python_bindings_step = b.step("uhid-py", "Build uhid python bindings");
-    //build_python_bindings_step.dependOn(&uhid_py.step);
+    //const uhid = b.addLibrary(.{
+    //    .linkage = .static,
+    //    .name = "uhid",
+    //    .root_module = uhid_mod,
+    //});
+    //uhid.linkLibC();
+    //uhid.installHeadersDirectory(
+    //    b.path("bindings/linux/include"),
+    //    "keylib",
+    //    .{
+    //        .exclude_extensions = &.{},
+    //        .include_extensions = &.{".h"},
+    //    },
+    //);
+    //b.installArtifact(uhid);
 
     // ++++++++++++++++++++++++++++++++++++++++++++
     // Tests
