@@ -1,6 +1,6 @@
 # keylib
 
-<noscript><a href="https://liberapay.com/r4gus/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a></noscript>
+<a href="https://liberapay.com/r4gus/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a>
 
 FIDO2 compatible authenticator and client library written in [Zig](https://ziglang.org/). The authenticator part requires __zero dynamic allocations__.
 
