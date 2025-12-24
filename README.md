@@ -1,13 +1,8 @@
 # keylib
 
-![GitHub](https://img.shields.io/github/license/r4gus/keylib?style=flat-square)
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/r4gus/keylib/main.yml?style=flat-square)
-![GitHub all releases](https://img.shields.io/github/downloads/r4gus/keylib/total?style=flat-square)
 <noscript><a href="https://liberapay.com/r4gus/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a></noscript>
 
 FIDO2 compatible authenticator and client library written in [Zig](https://ziglang.org/). The authenticator part requires __zero dynamic allocations__.
-
-> We track the latest stable release of Zig (`0.12.0`)
 
 If you want to see an example on how the library could be used, check out [PassKeeZ](https://github.com/r4gus/keypass).
 
@@ -15,7 +10,43 @@ If you want to see an example on how the library could be used, check out [PassK
 |:-----------:|:--------------:|
 | 0.13.0      | 0.5.0, 0.5.1, 0.5.2, 0.5.3 |
 | 0.14.x      | 0.6.0, 0.6.1 |
-| 0.15.x      | 0.7.0 |
+| 0.15.x      | 0.7.0, 0.8.0 |
+
+## Getting Started
+
+First add this project as a dependency to your `build.zig.zon` file:
+
+```bash
+# Replace <VERSION TAG> with the version you want to use ...
+zig fetch --save https://codeberg.org/r4gus/keylib/archive/<VERSION TAG>.tar.gz
+# e.g. zig fetch --save https://codeberg.org/r4gus/keylib/archive/0.8.0.tar.gz
+
+# ... or use the master branch
+zig fetch --save git+https://codeberg.org/r4gus/keylib
+```
+
+Then, within your `build.zig` add the following code:
+
+```zig
+const keylib_dep = b.dependency("keylib", .{
+    .target = target,
+    .optimize = optimize,
+});
+const keylib_module = keylib_dep.module("keylib");
+
+// For the uhid module (support for virtual authenticators on Linux) use:
+// const uhid_module = keylib_dep.module("uhid");
+
+// For the cliet module use:
+// const client_module = keylib_dep.module("clientlib");
+
+// ...
+
+exe.root_module.addImport("keylib", keylib_module);
+// or add one or more of the other modules as needed...
+```
+
+Then within your project just use `@import("keylib")` (or one of the other modules).
 
 ## QA
 
@@ -135,9 +166,9 @@ The authenticator example uses `88655` bytes of stack space when compiled with `
 
 We maintain two examples on how to use the library:
 
-* `authenticator` - [https://github.com/r4gus/keylib/blob/master/example/authenticator.zig](https://github.com/r4gus/keylib/blob/master/example/authenticator.zig)
+* `authenticator` - [https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig](https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig)
     * **Please read the description at the top of the source code for instructions on how to setup uhid correctly**
-* `client` - [https://github.com/r4gus/keylib/blob/master/example/client.zig](https://github.com/r4gus/keylib/blob/master/example/client.zig)
+* `client` - [https://codeberg.org/r4gus/keylib/src/branch/master/example/client.zig](https://codeberg.org/r4gus/keylib/src/branch/master/example/client.zig)
 
 ## Resources
 
