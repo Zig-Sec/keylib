@@ -44,7 +44,9 @@ pub fn build(b: *std.Build) !void {
     });
     try b.modules.put(b.dupe("keylib"), keylib_module);
 
+    var uhid_module_exists: bool = false;
     const uhid_module = if (target.result.os.tag == .linux) blk: {
+        uhid_module_exists = true;
         const uhid_module = b.addModule("uhid", .{
             .root_source_file = b.path("bindings/linux/src/uhid.zig"),
             .imports = &.{},
@@ -53,7 +55,14 @@ pub fn build(b: *std.Build) !void {
         });
         try b.modules.put(b.dupe("uhid"), uhid_module);
         break :blk uhid_module;
-    } else null;
+    } else blk: {
+        const uhid_module = b.addModule("uhid", .{
+            .target = target,
+            .optimize = optimize,
+        });
+        try b.modules.put(b.dupe("uhid"), uhid_module);
+        break :blk uhid_module;
+    };
 
     // Re-export zbor module
     try b.modules.put(b.dupe("zbor"), zbor_module);
@@ -102,8 +111,8 @@ pub fn build(b: *std.Build) !void {
         .root_module = authenticator_example_mod,
     });
     authenticator_example.root_module.addImport("keylib", keylib_module);
-    if (uhid_module) |mod| {
-        authenticator_example.root_module.addImport("uhid", mod);
+    if (uhid_module_exists) {
+        authenticator_example.root_module.addImport("uhid", uhid_module);
     }
     authenticator_example.root_module.addImport("zbor", zbor_dep.module("zbor"));
     authenticator_example.linkLibC();
