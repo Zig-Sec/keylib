@@ -1,9 +1,6 @@
 # keylib
 
-![GitHub](https://img.shields.io/github/license/r4gus/keylib?style=flat-square)
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/r4gus/keylib/main.yml?style=flat-square)
-![GitHub all releases](https://img.shields.io/github/downloads/r4gus/keylib/total?style=flat-square)
-<noscript><a href="https://liberapay.com/r4gus/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a></noscript>
+Work is continued on codeberg: https://codeberg.org/r4gus/keylib. To migrate to `0.8.0` run: `zig fetch --save https://codeberg.org/r4gus/keylib/archive/0.8.0.tar.gz` within the root of your Zig package.
 
 FIDO2 compatible authenticator and client library written in [Zig](https://ziglang.org/). The authenticator part requires __zero dynamic allocations__.
 
