@@ -29,12 +29,14 @@ created: i64,
 discoverable: bool = false,
 
 policy: fido.ctap.extensions.CredentialCreationPolicy = .userVerificationOptional,
-//
-///// Belongs to hmac secret
-//cred_random_with_uv: [32]u8 = undefined,
-//
-///// Belongs to hmac secret
-//cred_random_without_uv: [32]u8 = undefined,
+
+// HMAC Secret Extension BEGIN
+/// Belongs to hmac secret
+cred_random_with_uv: ?[32]u8 = null,
+
+/// Belongs to hmac secret
+cred_random_without_uv: ?[32]u8 = null,
+// HMAC Secret Extension END
 
 pub fn desc(_: void, lhs: @This(), rhs: @This()) bool {
     return lhs.created > rhs.created;
