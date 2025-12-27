@@ -97,6 +97,18 @@ remainingDiscoverableCredentials: ?u64 = null,
 /// values supported, which MAY be empty.
 vendorPrototypeConfigCommands: ?[]const u8 = null,
 
+/// Write the given settings to `out`.
+pub fn printJson(self: *const @This(), out: *std.Io.Writer) !void {
+    try std.json.Stringify.value(
+        self,
+        .{
+            .whitespace = .indent_2,
+            .emit_null_optional_fields = false,
+        },
+        out,
+    );
+}
+
 pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
     allocator.free(self.versions);
 

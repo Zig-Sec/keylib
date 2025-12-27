@@ -8,6 +8,10 @@ const Info = client.cbor_commands.Info;
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var allocator = gpa.allocator();
 
+var stdout_buffer: [1024]u8 = undefined;
+var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+const stdout = &stdout_writer.interface;
+
 pub fn main() !void {
     const pw = if (std.os.argv.len >= 2) blk: {
         var i: usize = 0;
@@ -55,6 +59,8 @@ pub fn main() !void {
         defer infos.deinit(allocator);
         const info = try infos.deserializeCbor(Info, allocator);
         defer info.deinit(allocator);
+        try info.printJson(stdout);
+        try stdout.flush();
         //std.log.info("info: {any}", .{info});
 
         // 1.a If the credMgmt option is not present or false, exit and
