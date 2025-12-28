@@ -85,6 +85,31 @@ pub fn build(b: *std.Build) !void {
     // Examples
     // ------------------------------------------------
 
+    // Client Examples
+    // ++++++++++++++++++++++++++++++++++++++++++++++++
+
+    const client_examples: []const [2][]const u8 = &.{
+        .{ "example/client/info.zig", "info" },
+    };
+
+    for (client_examples) |entry| {
+        const path, const name = entry;
+
+        const ce_mod = b.createModule(.{
+            .root_source_file = b.path(path),
+            .target = target,
+            .optimize = optimize,
+        });
+
+        var ce = b.addExecutable(.{
+            .name = name,
+            .root_module = ce_mod,
+        });
+        ce.root_module.addImport("client", client_module);
+
+        b.installArtifact(ce);
+    }
+
     const client_example_mod = b.createModule(.{
         .root_source_file = b.path("example/client.zig"),
         .target = target,
@@ -105,6 +130,9 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
+
+    // Authenticator Examples
+    // ++++++++++++++++++++++++++++++++++++++++++++++++
 
     var authenticator_example = b.addExecutable(.{
         .name = "authenticator",

@@ -48,6 +48,25 @@ exe.root_module.addImport("keylib", keylib_module);
 
 Then within your project just use `@import("keylib")` (or one of the other modules).
 
+## Design
+
+![keylib design](static/design.png)
+
+## Getting Started with keylib
+
+To get started it's best to look at one of the following examples:
+
+> The CTAP2 specification offers a lot of configurations for authenticators. If you're looking for a specific example and can't find it here, consider opening an issue. I'm open to add new features as long as you're also willing to contribute (in some form) to the project.
+
+### Authenticator
+
+* [https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig](https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig)
+    * **Please read the description at the top of the source code for instructions on how to setup uhid correctly**
+
+### Client
+
+- [`authenticatorGetInfo` example](https://codeberg.org/r4gus/keylib/src/branch/master/example/client/info.zig)
+
 ## QA
 
 <details>
@@ -158,21 +177,10 @@ The authenticator example uses `88655` bytes of stack space when compiled with `
 
 </details>
 
-## Design
-
-![keylib design](static/design.png)
-
-## Getting Started
-
-We maintain two examples on how to use the library:
-
-* `authenticator` - [https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig](https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig)
-    * **Please read the description at the top of the source code for instructions on how to setup uhid correctly**
-* `client` - [https://codeberg.org/r4gus/keylib/src/branch/master/example/client.zig](https://codeberg.org/r4gus/keylib/src/branch/master/example/client.zig)
-
 ## Resources
 
-- [CTAP2](https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-errata-20220621.html#intro) - FIDO Alliance
+- [CTAP2.1](https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-errata-20220621.html#intro) - FIDO Alliance
+- [CTAP2.2](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#intro) - FIDO Alliance
 - [WebAuthn](https://www.w3.org/TR/webauthn-3/) - W3C
 - [CBOR RFC8949](https://www.rfc-editor.org/rfc/rfc8949.html) - C. Bormann and P. Hoffman
 
