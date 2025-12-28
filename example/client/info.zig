@@ -20,6 +20,16 @@ var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
 const stdout = &stdout_writer.interface;
 
 pub fn main() !void {
+    const argv = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, argv);
+
+    // Allow device selection based on an index. Use this together with the
+    // manifest example.
+    var device_index: usize = 0;
+    if (argv.len >= 2) {
+        device_index = std.fmt.parseInt(usize, argv[1], 0) catch 0;
+    }
+
     // First, obtain a list of available authenticators.
     var transports = try client.Transports.enumerate(
         allocator,
@@ -27,13 +37,18 @@ pub fn main() !void {
     );
     defer transports.deinit();
 
-    // In our case we'll simply choose the first device available.
+    // Select a FIDO device.
     if (transports.devices.len == 0) {
         std.log.err("No device available", .{});
         return;
     }
 
-    var device = &transports.devices[0];
+    if (transports.devices.len <= device_index) {
+        std.log.err("No device at index {d}", .{device_index});
+        return;
+    }
+
+    var device = &transports.devices[device_index];
 
     // Next we have to open the selected device, to establish a connection.
     device.open() catch {
