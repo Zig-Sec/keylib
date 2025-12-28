@@ -91,6 +91,7 @@ pub fn build(b: *std.Build) !void {
     const client_examples: []const [2][]const u8 = &.{
         .{ "example/client/info.zig", "info" },
         .{ "example/client/manifest.zig", "manifest" },
+        .{ "example/client/select.zig", "select" },
     };
 
     for (client_examples) |entry| {

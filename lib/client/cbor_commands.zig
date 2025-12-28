@@ -94,7 +94,7 @@ pub const Promise = struct {
 };
 
 // ///////////////////////////////////////
-// Get Info
+// Get Info (0x04)
 // ///////////////////////////////////////
 
 /// Information about a FIDO authenticator including:
@@ -108,6 +108,17 @@ pub fn authenticatorGetInfo(t: *Transport) !Promise {
     const cmd = "\x04";
     try t.write(cmd);
     return Promise.new(t, 500);
+}
+
+// ///////////////////////////////////////
+// Authenticator Selection (0x0b)
+// ///////////////////////////////////////
+
+/// Make a authenticatorSelection request.
+pub fn authenticatorSelection(t: *Transport, timeout: i64) !Promise {
+    const cmd = "\x0b";
+    try t.write(cmd);
+    return Promise.new(t, timeout);
 }
 
 // ///////////////////////////////////////
