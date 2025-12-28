@@ -179,6 +179,7 @@ The authenticator example uses `88655` bytes of stack space when compiled with `
 
 ## Resources
 
+- [CTAP2.0](https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html) - FIDO Alliance
 - [CTAP2.1](https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-errata-20220621.html#intro) - FIDO Alliance
 - [CTAP2.2](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#intro) - FIDO Alliance
 - [WebAuthn](https://www.w3.org/TR/webauthn-3/) - W3C
