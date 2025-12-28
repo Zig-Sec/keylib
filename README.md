@@ -65,7 +65,7 @@ To get started it's best to look at one of the following examples:
 
 ### Client
 
-- [`authenticatorGetInfo` example](https://codeberg.org/r4gus/keylib/src/branch/master/example/client/info.zig)
+- [`authenticatorGetInfo` example](example/client/info.zig)
 
 ## QA
 
