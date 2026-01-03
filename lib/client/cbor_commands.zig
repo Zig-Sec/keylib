@@ -476,6 +476,127 @@ pub const client_pin = struct {
         reserved2: u1 = 0,
     };
 
+    /// Change an existing PIN for an authenticator.
+    ///
+    /// The caller is responsible for checking if the new
+    /// PIN adheres to the minPINLength set by the authenticator.
+    pub fn changePin(
+        t: *Transport,
+        e: *Encapsulation, // shared secret
+        curPin: []const u8,
+        newPin: []const u8,
+        a: std.mem.Allocator,
+    ) !Promise {
+        // 63 bytes is the limit for pins
+        if (curPin.len > 63) return error.pin;
+        if (newPin.len > 63) return error.pin;
+
+        // Platform sends authenticatorClientPIN command to the
+        // authenticator.
+        const cmd = 0x06;
+        var request = ClientPin{
+            .pinUvAuthProtocol = e.version,
+            .subCommand = .changePIN,
+            .keyAgreement = cbor.cose.Key.fromP256Pub(
+                .EcdhEsHkdf256,
+                e.platform_key_agreement_key,
+            ),
+        };
+
+        // Calculate: pinHashEnc: The result of calling
+        //            encrypt(shared secret, LEFT(SHA-256(curPin), 16))
+        var pin_hash: [Sha256.digest_length]u8 = undefined;
+        Sha256.hash(curPin, &pin_hash, .{});
+        // Who the fuck would just use half of an hash!?!
+        const pin_hash_left = pin_hash[0..16];
+
+        var paddedPin: [64]u8 = .{0} ** 64;
+        @memcpy(paddedPin[0..newPin.len], newPin);
+
+        var @"newPinEnc || pinHashEnc": std.ArrayListUnmanaged(u8) = .empty;
+        defer {
+            std.crypto.secureZero(u8, @"newPinEnc || pinHashEnc".items);
+            @"newPinEnc || pinHashEnc".deinit(a);
+        }
+
+        var _pinHashEnc: [32]u8 = undefined;
+        var _newPinEnc: [80]u8 = undefined;
+        switch (e.version) {
+            .V1 => {
+                // Encrypt PIN hash
+                const iv: [16]u8 = .{0} ** 16;
+                PinUvAuth._encrypt(
+                    iv,
+                    e.shared_secret.get()[0..32].*,
+                    _pinHashEnc[0..16],
+                    pin_hash_left,
+                );
+                request.pinHashEnc = try keylib.common.dt.ABS32B.fromSlice(
+                    _pinHashEnc[0..16],
+                );
+
+                // Encrypt padded PIN
+                PinUvAuth._encrypt(
+                    iv,
+                    e.shared_secret.get()[0..32].*,
+                    _newPinEnc[0..64],
+                    &paddedPin,
+                );
+                request.newPinEnc = try keylib.common.dt.ABS80B.fromSlice(
+                    _newPinEnc[0..64],
+                );
+
+                try @"newPinEnc || pinHashEnc".appendSlice(a, _newPinEnc[0..64]);
+                try @"newPinEnc || pinHashEnc".appendSlice(a, _pinHashEnc[0..16]);
+            },
+            .V2 => {
+                // Encrypt PIN hash
+                std.crypto.random.bytes(_pinHashEnc[0..16]);
+                PinUvAuth._encrypt(
+                    _pinHashEnc[0..16].*,
+                    e.shared_secret.get()[32..64].*,
+                    _pinHashEnc[16..32],
+                    pin_hash_left,
+                );
+                request.pinHashEnc = try keylib.common.dt.ABS32B.fromSlice(
+                    _pinHashEnc[0..32],
+                );
+
+                // Encrypt padded PIN
+                std.crypto.random.bytes(_newPinEnc[0..16]);
+                PinUvAuth._encrypt(
+                    _newPinEnc[0..16].*,
+                    e.shared_secret.get()[32..64].*,
+                    _newPinEnc[16..80],
+                    &paddedPin,
+                );
+                request.newPinEnc = try keylib.common.dt.ABS80B.fromSlice(
+                    _newPinEnc[0..80],
+                );
+
+                try @"newPinEnc || pinHashEnc".appendSlice(a, _newPinEnc[0..80]);
+                try @"newPinEnc || pinHashEnc".appendSlice(a, _pinHashEnc[0..32]);
+            },
+        }
+
+        const param = switch (e.version) {
+            .V1 => PinUvAuth.authenticate_v1(e.shared_secret.get(), @"newPinEnc || pinHashEnc".items),
+            .V2 => PinUvAuth.authenticate_v2(e.shared_secret.get(), @"newPinEnc || pinHashEnc".items),
+        };
+        request.pinUvAuthParam = param;
+
+        // Serialize request
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(cmd);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        return Promise.new(t, 500);
+    }
+
     pub fn getPinToken(
         t: *Transport,
         e: *Encapsulation,
