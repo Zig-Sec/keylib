@@ -20,3 +20,9 @@ Print information about the specified <device>.
 Set <newPin> as the new PIN for <device>. If <curPin> is provided,
 the device's PIN is changed from <curPin> to <newPin>.
 ```
+
+- `reset <device>`
+
+```
+Performs a factory reset on <device>.
+```

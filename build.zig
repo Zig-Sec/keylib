@@ -93,6 +93,7 @@ pub fn build(b: *std.Build) !void {
         .{ "example/client/manifest.zig", "manifest" },
         .{ "example/client/select.zig", "select" },
         .{ "example/client/setpin.zig", "setpin" },
+        .{ "example/client/reset.zig", "reset" },
     };
 
     for (client_examples) |entry| {

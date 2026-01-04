@@ -111,6 +111,17 @@ pub fn authenticatorGetInfo(t: *Transport) !Promise {
 }
 
 // ///////////////////////////////////////
+// Reset (0x07)
+// ///////////////////////////////////////
+
+/// Make a authenticatorGetInfo request
+pub fn authenticatorReset(t: *Transport, tout: i64) !Promise {
+    const cmd = "\x07";
+    try t.write(cmd);
+    return Promise.new(t, tout);
+}
+
+// ///////////////////////////////////////
 // Authenticator Selection (0x0b)
 // ///////////////////////////////////////
 
