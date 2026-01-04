@@ -87,8 +87,8 @@ pub fn main() !void {
         return;
     }
 
-    if (info.options.clientPin == null or !info.options.clientPin.?) {
-        std.log.warn("TBD: show how to handle other clientPin configs", .{});
+    if (info.options.clientPin == null) {
+        std.log.warn("client PIN not supported by authenticator", .{});
         return;
     }
 
@@ -107,19 +107,22 @@ pub fn main() !void {
     );
 
     // Change an existing PIN
-    if (info.options.clientPin != null and info.options.clientPin.?) {
+    if (info.options.clientPin.?) {
         if (curPin == null) {
             std.log.err("curPin argument required", .{});
             return;
         }
 
-        var cpr = try client_pin.changePin(
+        var cpr = client_pin.changePin(
             device,
             &shared_secret,
             curPin.?,
             newPin,
             allocator,
-        );
+        ) catch |e| {
+            std.log.err("failed to change pin: {any}", .{e});
+            return;
+        };
 
         var cp_state = try cpr.await(allocator);
         defer cp_state.deinit(allocator);
@@ -137,5 +140,16 @@ pub fn main() !void {
                 return;
             },
         }
+    } else { // set a new PIN
+        const spr = client_pin.setPin(
+            device,
+            &shared_secret,
+            newPin,
+            allocator,
+        ) catch |e| {
+            std.log.err("failed to set pin: {any}", .{e});
+            return;
+        };
+        _ = spr;
     }
 }

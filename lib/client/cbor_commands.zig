@@ -487,6 +487,84 @@ pub const client_pin = struct {
         reserved2: u1 = 0,
     };
 
+    /// Set a PIN for an authenticator.
+    ///
+    /// The caller is responsible for checking if the new
+    /// PIN adheres to the minPINLength set by the authenticator.
+    pub fn setPin(
+        t: *Transport,
+        e: *Encapsulation, // shared secret
+        newPin: []const u8,
+        a: std.mem.Allocator,
+    ) !Promise {
+        // 63 bytes is the limit for pins
+        if (newPin.len > 63) return error.pin;
+
+        // Platform sends authenticatorClientPIN command to the
+        // authenticator.
+        const cmd = 0x06;
+        var request = ClientPin{
+            .pinUvAuthProtocol = e.version,
+            .subCommand = .setPIN,
+            .keyAgreement = cbor.cose.Key.fromP256Pub(
+                .EcdhEsHkdf256,
+                e.platform_key_agreement_key,
+            ),
+        };
+
+        var paddedPin: [64]u8 = .{0} ** 64;
+        @memcpy(paddedPin[0..newPin.len], newPin);
+
+        var _newPinEnc: [80]u8 = undefined;
+        switch (e.version) {
+            .V1 => {
+                // Encrypt PIN hash
+                const iv: [16]u8 = .{0} ** 16;
+
+                // Encrypt padded PIN
+                PinUvAuth._encrypt(
+                    iv,
+                    e.shared_secret.get()[0..32].*,
+                    _newPinEnc[0..64],
+                    &paddedPin,
+                );
+                request.newPinEnc = try keylib.common.dt.ABS80B.fromSlice(
+                    _newPinEnc[0..64],
+                );
+            },
+            .V2 => {
+                // Encrypt padded PIN
+                std.crypto.random.bytes(_newPinEnc[0..16]);
+                PinUvAuth._encrypt(
+                    _newPinEnc[0..16].*,
+                    e.shared_secret.get()[32..64].*,
+                    _newPinEnc[16..80],
+                    &paddedPin,
+                );
+                request.newPinEnc = try keylib.common.dt.ABS80B.fromSlice(
+                    _newPinEnc[0..80],
+                );
+            },
+        }
+
+        const param = switch (e.version) {
+            .V1 => PinUvAuth.authenticate_v1(e.shared_secret.get(), request.newPinEnc.?.get()),
+            .V2 => PinUvAuth.authenticate_v2(e.shared_secret.get(), request.newPinEnc.?.get()),
+        };
+        request.pinUvAuthParam = param;
+
+        // Serialize request
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(cmd);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        return Promise.new(t, 500);
+    }
+
     /// Change an existing PIN for an authenticator.
     ///
     /// The caller is responsible for checking if the new
