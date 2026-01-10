@@ -26,6 +26,11 @@ pub fn build(b: *std.Build) !void {
     });
     const uuid_module = uuid_dep.module("uuid");
 
+    const clap_dep = b.dependency("clap", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     // ++++++++++++++++++++++++++++++++++++++++++++
     // Module
     // ++++++++++++++++++++++++++++++++++++++++++++
@@ -94,6 +99,7 @@ pub fn build(b: *std.Build) !void {
         .{ "example/client/select.zig", "select" },
         .{ "example/client/setpin.zig", "setpin" },
         .{ "example/client/reset.zig", "reset" },
+        .{ "example/client/cred.zig", "cred" },
     };
 
     for (client_examples) |entry| {
@@ -110,6 +116,10 @@ pub fn build(b: *std.Build) !void {
             .root_module = ce_mod,
         });
         ce.root_module.addImport("client", client_module);
+
+        if (std.mem.eql(u8, name, "cred")) { // for command line argument parsing
+            ce.root_module.addImport("clap", clap_dep.module("clap"));
+        }
 
         b.installArtifact(ce);
     }

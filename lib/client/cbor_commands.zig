@@ -198,7 +198,211 @@ pub const credentials = struct {
         param: ?[]const u8 = null,
     };
 
+    /// Create a client data hash
+    ///
+    /// ## Arguments
+    ///
+    /// - `typ`: "webauthn.create" / "webauthn.get"
+    /// - `challenge`: a challenge (nonce)
+    /// - `origin`: an origin (e.g. localhost)
+    /// - `corssOrigin`
+    pub fn clientDataHash(
+        a: std.mem.Allocator,
+        typ: []const u8,
+        challenge: []const u8,
+        origin: []const u8,
+        crossOrigin: bool,
+    ) ![Sha256.digest_length]u8 {
+        // The challenge is base64 encoded before being integrated into the client data
+        const Base64 = std.base64.url_safe.Encoder;
+        const c = try a.alloc(u8, Base64.calcSize(challenge.len));
+        defer a.free(c);
+        _ = Base64.encode(c, challenge);
+
+        // Serialize the client data and then hash them...
+        const client_data = try serialize(
+            a,
+            typ,
+            c,
+            origin,
+            crossOrigin,
+        );
+        defer a.free(client_data);
+        var client_data_hash: [Sha256.digest_length]u8 = undefined;
+        Sha256.hash(client_data, client_data_hash[0..], .{});
+
+        return client_data_hash;
+    }
+
+    pub const MakeCredentialResponse = keylib.ctap.response.MakeCredential;
+
     pub fn create(
+        t: *Transport,
+        allocator: std.mem.Allocator,
+        info: Info,
+        params: struct {
+            rpId: []const u8,
+            userId: []const u8,
+            challenge: []const u8,
+            rpName: ?[]const u8 = null,
+            crossOrigin: bool = false,
+            userName: ?[]const u8 = null,
+            userDisplayName: ?[]const u8 = null,
+            rk: ?bool = null,
+            uv: bool = false,
+            hms: bool = false,
+            type: keylib.common.PublicKeyCredentialParameters = .{
+                .alg = .Es256,
+                .type = .@"public-key",
+            },
+            pin: ?[]const u8 = null,
+            timeout: i64 = 30000,
+        },
+    ) !Promise {
+        // fallback when pinUvAuthToken option ID is missing or false
+        var uv: ?bool = null;
+        // auth token
+        var token: ?[]const u8 = null;
+
+        if (params.pin != null and (info.options.clientPin == null or !info.options.clientPin.?)) {
+            // Pin is either not supported or not set
+            return error.pin;
+        }
+        if (params.uv and (info.options.uv == null or !info.options.uv.?)) {
+            // UV is either not supported or not configured
+            return error.uv;
+        }
+
+        // ===========================
+        // Create client data hash
+        // ===========================
+
+        const client_data_hash = try credentials.clientDataHash(
+            allocator,
+            "webauthn.create",
+            params.challenge,
+            params.rpId,
+            params.crossOrigin,
+        );
+
+        // ===========================
+        // Obtain a pinUvAuthParam
+        // ===========================
+
+        const pinUvAuthProtocol = info.pinUvAuthProtocols.?[0];
+        var shared_secret = try client_pin.getKeyAgreement(
+            t,
+            pinUvAuthProtocol,
+            allocator,
+        );
+
+        // The uv option ID is present and set to true
+        if (info.options.uv != null and info.options.uv.?) {
+            // pinUvAuthToken option ID present and true
+            if (info.options.pinUvAuthToken != null and info.options.pinUvAuthToken.?) {
+                token = try client_pin.getPinUvAuthTokenUsingUvWithPermissions(
+                    t,
+                    &shared_secret,
+                    .{
+                        .mc = 1,
+                        .ga = 1,
+                    },
+                    params.rpId,
+                    allocator,
+                );
+            } else { // pinUvAuthToken option ID false or absent
+                //uv = true; // use the uv option with make credential
+                // TODO: handle this case
+            }
+        } else { // The uv option ID is false or absent
+            // pinUvAuthToken option ID present and true
+            if (info.options.pinUvAuthToken != null and info.options.pinUvAuthToken.?) {
+                token = try client_pin.getPinUvAuthTokenUsingPinWithPermissions(
+                    t,
+                    &shared_secret,
+                    .{
+                        .mc = 1,
+                        .ga = 1,
+                    },
+                    params.rpId,
+                    params.pin.?,
+                    allocator,
+                );
+            } else { // the pinUvAuthToken option ID is absent
+                if (info.options.clientPin != null and info.options.clientPin.?) {
+                    token = try client_pin.getPinToken(
+                        t,
+                        &shared_secret,
+                        params.pin.?, // we have already checked that pin is present
+                        allocator,
+                    );
+                }
+            }
+        }
+
+        if (uv == null and token == null) {
+            uv = false;
+        }
+
+        // ===========================
+        // Prepare data
+        // ===========================
+
+        const rp = try keylib.common.RelyingParty.new(
+            params.rpId,
+            params.rpName,
+        );
+
+        const user = try keylib.common.User.new(
+            params.userId,
+            params.userName,
+            params.userDisplayName,
+        );
+
+        var mc = keylib.ctap.request.MakeCredential{
+            .clientDataHash = client_data_hash,
+            .rp = rp,
+            .user = user,
+            .pubKeyCredParams = (try keylib.common.dt.ABSPublicKeyCredentialParameters.fromSlice(&.{params.type})).?,
+            .options = .{
+                .rk = params.rk,
+                .uv = uv,
+                .up = null,
+            },
+        };
+
+        if (token) |tok| {
+            mc.pinUvAuthParam = switch (pinUvAuthProtocol) {
+                .V1 => PinUvAuth.authenticate_v1(
+                    tok,
+                    &client_data_hash,
+                ),
+                .V2 => PinUvAuth.authenticate_v2(
+                    tok,
+                    &client_data_hash,
+                ),
+            };
+            mc.pinUvAuthProtocol = pinUvAuthProtocol;
+        } // TODO handle the other authentications scenarios
+
+        // ===========================
+        // Sending request
+        // ===========================
+
+        var arr = std.Io.Writer.Allocating.init(allocator);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(0x01);
+        try cbor.stringify(mc, .{}, &arr.writer);
+
+        //std.debug.print("{x}\n", .{arr.written()});
+
+        try t.write(arr.written());
+
+        return Promise.new(t, params.timeout);
+    }
+
+    pub fn create2(
         t: *Transport,
         origin: []const u8,
         crossOrigin: bool,
@@ -369,10 +573,11 @@ pub const credentials = struct {
         return try out.toOwnedSlice();
     }
 
+    // https://www.w3.org/TR/webauthn-2/#ccdtostring
     pub fn CCDToString(out: *std.Io.Writer, in: []const u8) !void {
         var i: usize = 0;
 
-        std.log.info("{s}", .{in});
+        //std.log.info("{s}", .{in});
 
         try out.writeByte(0x22);
         while (i < in.len) : (i += 1) {
@@ -382,7 +587,7 @@ pub const credentials = struct {
             switch (cp) {
                 0x20, 0x21, 0x23...0x5b, 0x5d...0x10ffff => try out.writeAll(in[i .. i + l]),
                 0x22 => try out.writeAll(&.{ 0x5c, 0x22 }),
-                0x5c => try out.writeAll(&.{ 0x5c, 0x22 }),
+                0x5c => try out.writeAll(&.{ 0x5c, 0x5c }),
                 else => {
                     var tmp: [4]u8 = .{0} ** 4;
                     @memcpy(tmp[0..l], in[i .. i + l]);
@@ -391,6 +596,16 @@ pub const credentials = struct {
                 },
             }
         }
+        //for (in) |c| {
+        //    switch (c) { // this is not quite correct... TODO: fix this for utf8
+        //        0x20, 0x21, 0x23...0x5b, 0x5d...0x7e => try out.writeByte(c),
+        //        0x22 => try out.writeAll(&.{ 0x5c, 0x22 }),
+        //        0x5c => try out.writeAll(&.{ 0x5c, 0x5c }),
+        //        else => {
+        //            return error.you_fell_into_my_trap;
+        //        },
+        //    }
+        //}
         try out.writeByte(0x22);
     }
 };
@@ -788,7 +1003,7 @@ pub const client_pin = struct {
         };
 
         if (rpId) |id| {
-            request.rpId = id;
+            request.rpId = try .fromSlice(id);
         }
 
         var pin_hash: [Sha256.digest_length]u8 = undefined;
@@ -802,7 +1017,7 @@ pub const client_pin = struct {
                 const iv: [16]u8 = .{0} ** 16;
                 PinUvAuth._encrypt(
                     iv,
-                    e.shared_secret[0..32].*,
+                    e.shared_secret.get()[0..32].*,
                     _pinHashEnc[0..16],
                     pin_hash_left,
                 );
@@ -812,14 +1027,14 @@ pub const client_pin = struct {
                 std.crypto.random.bytes(_pinHashEnc[0..16]);
                 PinUvAuth._encrypt(
                     _pinHashEnc[0..16].*,
-                    e.shared_secret[32..64].*,
+                    e.shared_secret.get()[32..64].*,
                     _pinHashEnc[16..32],
                     pin_hash_left,
                 );
                 pinHashEnc = _pinHashEnc[0..32];
             },
         }
-        request.pinHashEnc = pinHashEnc;
+        request.pinHashEnc = try .fromSlice(pinHashEnc);
 
         var arr = std.Io.Writer.Allocating.init(a);
         defer arr.deinit();
@@ -836,8 +1051,7 @@ pub const client_pin = struct {
                 return err.errorFromInt(response[0]);
             }
 
-            var cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{ .allocator = a });
-            defer cpr.deinit(a);
+            const cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{});
 
             if (cpr.pinUvAuthToken == null) return error.MissingPar;
 
@@ -845,11 +1059,11 @@ pub const client_pin = struct {
             switch (e.version) {
                 .V1 => {
                     token = try a.alloc(u8, cpr.pinUvAuthToken.?.len);
-                    PinUvAuth.decrypt_v1(e.shared_secret, token, cpr.pinUvAuthToken.?);
+                    PinUvAuth.decrypt_v1(e.shared_secret.get(), token, cpr.pinUvAuthToken.?.get());
                 },
                 .V2 => {
                     token = try a.alloc(u8, cpr.pinUvAuthToken.?.len - 16);
-                    PinUvAuth.decrypt_v2(e.shared_secret, token, cpr.pinUvAuthToken.?);
+                    PinUvAuth.decrypt_v2(e.shared_secret.get(), token, cpr.pinUvAuthToken.?.get());
                 },
             }
             return token;
@@ -877,7 +1091,7 @@ pub const client_pin = struct {
         };
 
         if (rpId) |id| {
-            request.rpId = id;
+            request.rpId = try .fromSlice(id);
         }
 
         var arr = std.Io.Writer.Allocating.init(a);
@@ -895,8 +1109,7 @@ pub const client_pin = struct {
                 return err.errorFromInt(response[0]);
             }
 
-            var cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{ .allocator = a });
-            defer cpr.deinit(a);
+            var cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{});
 
             if (cpr.pinUvAuthToken == null) return error.MissingPar;
 
@@ -904,11 +1117,11 @@ pub const client_pin = struct {
             switch (e.version) {
                 .V1 => {
                     token = try a.alloc(u8, cpr.pinUvAuthToken.?.len);
-                    PinUvAuth.decrypt_v1(e.shared_secret, token, cpr.pinUvAuthToken.?);
+                    PinUvAuth.decrypt_v1(e.shared_secret.get(), token, cpr.pinUvAuthToken.?.get());
                 },
                 .V2 => {
                     token = try a.alloc(u8, cpr.pinUvAuthToken.?.len - 16);
-                    PinUvAuth.decrypt_v2(e.shared_secret, token, cpr.pinUvAuthToken.?);
+                    PinUvAuth.decrypt_v2(e.shared_secret.get(), token, cpr.pinUvAuthToken.?.get());
                 },
             }
             return token;

@@ -25,7 +25,7 @@ pub const AttestationStatement = union(fido.common.AttestationStatementFormatIde
         // The elements of this array contain attestnCert and its certificate chain (if any),
         // each encoded in X.509 format. The attestation certificate attestnCert MUST be
         // the first element in the array.
-        //TODO: x5c: ?[]const Cert = null,
+        x5c: ?[]const []const u8 = null,
     },
     tpm: struct {}, // TODO: implement
     @"android-key": struct {}, // TODO: implement
@@ -46,5 +46,15 @@ pub const AttestationStatement = union(fido.common.AttestationStatementFormatIde
                 .{ .name = "alg", .value_options = .{ .enum_serialization_type = .Integer } },
             },
         }, out);
+    }
+
+    pub fn cborParse(item: cbor.DataItem, options: cbor.Options) !@This() {
+        return try cbor.parse(@This(), item, .{
+            .allocator = options.allocator,
+            .ignore_override = true, // prevent infinite loops
+            .field_settings = &.{
+                .{ .name = "alg", .value_options = .{ .enum_serialization_type = .Integer } },
+            },
+        });
     }
 };
