@@ -1386,4 +1386,57 @@ pub const cred_management = struct {
             return error.MissingResponse;
         }
     }
+
+    pub fn deleteCredential(
+        t: *Transport,
+        token: []const u8,
+        protocol: keylib.ctap.pinuv.common.PinProtocol,
+        credentialId: []const u8,
+        is_yubikey: bool,
+        a: std.mem.Allocator,
+    ) !void {
+        var request = CredentialManagement{
+            .subCommand = .deleteCredential,
+            .subCommandParams = .{
+                .credentialID = .{
+                    .id = (try keylib.common.dt.ABS64B.fromSlice(credentialId)).?,
+                    .type = .@"public-key",
+                },
+            },
+        };
+
+        // Create Param
+
+        var scp = std.Io.Writer.Allocating.init(a);
+        defer scp.deinit();
+        try scp.writer.writeByte(0x06);
+        try cbor.stringify(request.subCommandParams.?, .{}, &scp.writer);
+        //std.debug.print("{x}\n", .{scp.written()});
+        const param = switch (protocol) {
+            .V1 => PinUvAuth.authenticate_v1(token, scp.written()),
+            .V2 => PinUvAuth.authenticate_v2(token, scp.written()),
+        };
+        request.pinUvAuthProtocol = protocol;
+        request.pinUvAuthParam = param.get();
+
+        // Send request
+
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(if (is_yubikey) 0x41 else 0x0a);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        if (try t.read(a)) |response| {
+            defer a.free(response);
+
+            if (response[0] != 0) {
+                return err.errorFromInt(response[0]);
+            }
+        } else {
+            return error.MissingResponse;
+        }
+    }
 };

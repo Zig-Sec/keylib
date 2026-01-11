@@ -71,3 +71,16 @@ credMgmtPreview) as some use a differnt command code.
 
 Example: $ ./enumcred -y -p 1234 0 zigtoberfest.de
 ```
+
+- `./delete [-y] [-p <pin>] <device> <credId>`
+
+```
+Remove the credential corresponding to <credId> from <device>.
+
+<credId> MUST be provided in hex (see `enumcred`).
+
+Use the `y` option for YubiKeys (and possibly other authenticators using the 
+credMgmtPreview) as some use a differnt command code.
+
+Example: $ ./delete -y -p 1234 0 c903a5912b4708a0b5aad34aa31dce5a2067978885be6d4824d5352543443dc2ff377e4168987003c21a312beffdaa78
+```

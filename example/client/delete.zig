@@ -62,7 +62,11 @@ pub fn main() !void {
     }
 
     const device_index = try std.fmt.parseInt(usize, res.positionals[0][0], 0);
-    const origin = res.positionals[0][1];
+    var credIdBuffer: [64]u8 = .{0} ** 64;
+    const credId = try std.fmt.hexToBytes(
+        &credIdBuffer,
+        res.positionals[0][1],
+    );
 
     // ============================================
     // Open device
@@ -128,51 +132,24 @@ pub fn main() !void {
     // Prepare the data for the request
     // ============================================
 
-    var rpIDHash: [32]u8 = undefined;
-    std.crypto.hash.sha2.Sha256.hash(origin, &rpIDHash, .{});
-
-    const user = try client.cbor_commands.cred_management.enumerateCredentialsBegin(
+    client.cbor_commands.cred_management.deleteCredential(
         device,
         token,
         pinUvAuthProtocol,
-        rpIDHash,
+        credId,
         yubikey,
         allocator,
-    );
-
-    if (user == null) {
-        return;
-    }
-
-    //try std.json.Stringify.value(user.?, .{}, stdout);
-
-    try stdout.print("Credential (1)\n", .{});
-    try stdout.print("  userId: {x}\n", .{user.?.user.id.get()});
-    try stdout.print("  credId: {x}\n", .{user.?.credentialID.id.get()});
-    try stdout.flush();
-
-    if (user.?.totalCredentials) |total| {
-        var i: usize = 1; // total contains the number of resident keys, i.e. we have to start at one (1)
-        while (i < total) : (i += 1) {
-            if (try client.cbor_commands.cred_management.enumerateCredentialsGetNextCredential(
-                device,
-                yubikey,
-                allocator,
-            )) |next_user| {
-                try stdout.print("Credential ({d})\n", .{i + 1});
-                try stdout.print("  userId: {x}\n", .{next_user.user.id.get()});
-                try stdout.print("  credId: {x}\n", .{next_user.credentialID.id.get()});
-                try stdout.flush();
-            }
-        }
-    }
+    ) catch |e| {
+        try stderr.print("error deleting credential ({any})\n", .{e});
+    };
 }
 
 const help_text =
-    \\usage: enumcred <device> <origin>
+    \\usage: delete <device> <credId>
     \\
     \\--help                 Display this help and exit.
     \\-p <str>               Specify a PIN for authentication
+    \\-y                     credential management preview / YubiKey command
     \\<str>...
     \\
 ;
