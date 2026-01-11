@@ -61,3 +61,19 @@ pub fn cborStringify(self: *const @This(), options: cbor.Options, out: *std.Io.W
         out,
     );
 }
+
+pub fn cborParse(item: cbor.DataItem, options: cbor.Options) !@This() {
+    return try cbor.parse(@This(), item, .{
+        .allocator = options.allocator,
+        .ignore_override = true, // prevent infinite loops
+        .field_settings = &.{
+            .{ .name = "credential", .field_options = .{ .alias = "1", .serialization_type = .Integer } },
+            .{ .name = "authData", .field_options = .{ .alias = "2", .serialization_type = .Integer } },
+            .{ .name = "signature", .field_options = .{ .alias = "3", .serialization_type = .Integer } },
+            .{ .name = "user", .field_options = .{ .alias = "4", .serialization_type = .Integer } },
+            .{ .name = "numberOfCredentials", .field_options = .{ .alias = "5", .serialization_type = .Integer } },
+            .{ .name = "userSelected", .field_options = .{ .alias = "6", .serialization_type = .Integer } },
+            .{ .name = "largeBlobKey", .field_options = .{ .alias = "7", .serialization_type = .Integer } },
+        },
+    });
+}

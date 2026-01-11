@@ -104,6 +104,7 @@ pub fn build(b: *std.Build) !void {
         .{ "example/client/enumrp.zig", "enumrp" },
         .{ "example/client/enumcred.zig", "enumcred" },
         .{ "example/client/delete.zig", "delete" },
+        .{ "example/client/assert.zig", "assert" },
     };
 
     for (client_examples) |entry| {

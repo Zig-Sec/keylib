@@ -336,6 +336,7 @@ pub const credentials = struct {
     }
 
     pub const MakeCredentialResponse = keylib.ctap.response.MakeCredential;
+    pub const GetAssertionResponse = keylib.ctap.response.GetAssertion;
 
     /// Create a new credential using the authenticatorMakeCredential command.
     ///
@@ -433,68 +434,95 @@ pub const credentials = struct {
         return Promise.new(t, params.timeout);
     }
 
-    pub fn get(
+    pub fn getAssertion(
         t: *Transport,
-        origin: []const u8,
-        crossOrigin: bool,
-        public_key: PublicKey,
-        options: Options,
-        a: std.mem.Allocator,
+        token: []const u8,
+        pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
+        allocator: std.mem.Allocator,
+        params: struct {
+            rpId: []const u8,
+            challenge: []const u8,
+            crossOrigin: bool = false,
+            hms: bool = false,
+            // TODO: add allow list
+            timeout: i64 = 30000,
+        },
     ) !Promise {
-        if (public_key.rpId == null) {
-            return error.RpIdMissing;
-        }
+        // ===========================
+        // Create client data hash
+        // ===========================
 
-        // TODO: compare origin to public_key.rp.id ???
-
-        // The challenge is base64 encoded before being integrated into the client data
-        const Base64 = std.base64.url_safe.Encoder;
-        const challenge = try a.alloc(u8, Base64.calcSize(public_key.challenge.len));
-        defer a.free(challenge);
-        _ = Base64.encode(challenge, public_key.challenge);
-
-        // Serialize the client data and then hash them...
-        const client_data = try serialize(
-            a,
+        const client_data_hash = try credentials.clientDataHash(
+            allocator,
             "webauthn.get",
-            challenge,
-            origin,
-            crossOrigin,
+            params.challenge,
+            params.rpId,
+            params.crossOrigin,
         );
-        defer a.free(client_data);
-        var client_data_hash: [Sha256.digest_length]u8 = undefined;
-        Sha256.hash(client_data, client_data_hash[0..], .{});
 
-        const param: ?keylib.common.dt.ABS32B = if (options.param != null and options.protocol != null) blk: {
-            const param = switch (options.protocol.?) {
-                .V1 => PinUvAuth.authenticate_v1(options.param.?, &client_data_hash),
-                .V2 => PinUvAuth.authenticate_v2(options.param.?, &client_data_hash),
-            };
-            break :blk param;
-        } else blk: {
-            break :blk null;
-        };
+        // ===========================
+        // Prepare data
+        // ===========================
 
-        const cmd = 0x02;
-        const request = keylib.ctap.request.GetAssertion{
-            .rpId = (try keylib.common.dt.ABS128T.fromSlice(public_key.rpId.?)).?,
+        var ga = keylib.ctap.request.GetAssertion{
+            .rpId = (try keylib.common.dt.ABS128T.fromSlice(params.rpId)).?,
             .clientDataHash = client_data_hash,
-            .pinUvAuthParam = param,
-            .pinUvAuthProtocol = options.protocol,
-            .allowList = try keylib.common.dt.ABSPublicKeyCredentialDescriptor.fromSlice(public_key.allowCredentials),
+            .options = .{
+                .up = null,
+                .uv = null, // uv must not be set when using pinUvAuthParam
+            },
         };
 
-        var arr = std.Io.Writer.Allocating.init(a);
+        ga.pinUvAuthParam = switch (pinUvAuthProtocol) {
+            .V1 => PinUvAuth.authenticate_v1(
+                token,
+                &client_data_hash,
+            ),
+            .V2 => PinUvAuth.authenticate_v2(
+                token,
+                &client_data_hash,
+            ),
+        };
+        ga.pinUvAuthProtocol = pinUvAuthProtocol;
+
+        // ===========================
+        // Sending request
+        // ===========================
+
+        var arr = std.Io.Writer.Allocating.init(allocator);
         defer arr.deinit();
 
-        try arr.writer.writeByte(cmd);
-        try cbor.stringify(request, .{}, &arr.writer);
+        try arr.writer.writeByte(0x02);
+        try cbor.stringify(ga, .{}, &arr.writer);
 
-        //std.log.info("{s}", .{arr.written()});
+        //std.debug.print("{x}\n", .{arr.written()});
 
         try t.write(arr.written());
 
-        return Promise.new(t, public_key.timeout);
+        return Promise.new(t, params.timeout);
+    }
+
+    pub fn getNextAssertion(
+        t: *Transport,
+        allocator: std.mem.Allocator,
+        params: struct {
+            timeout: i64 = 30000,
+        },
+    ) !Promise {
+        // ===========================
+        // Sending request
+        // ===========================
+
+        var arr = std.Io.Writer.Allocating.init(allocator);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(0x08);
+
+        //std.debug.print("{x}\n", .{arr.written()});
+
+        try t.write(arr.written());
+
+        return Promise.new(t, params.timeout);
     }
 
     /// Serialize the collected client data.
