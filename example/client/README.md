@@ -47,3 +47,17 @@ credMgmtPreview) as some use a differnt command code.
 
 Example: $ ./metadata 0 1234 y
 ```
+
+- `enumrp <device> [pin] [y/n]`
+
+```
+Enumerate all relying parties present on <device>.
+
+Multiple resident keys (passkeys) can share the same relying party.
+
+Use the `y` option for YubiKeys (and possibly other authenticators using the 
+credMgmtPreview) as some use a differnt command code.
+
+Example: $ ./enumrp 0 1234 y
+```
+

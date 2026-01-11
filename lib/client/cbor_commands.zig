@@ -1090,11 +1090,9 @@ pub const CredentialManagement = keylib.ctap.request.CredentialManagement;
 pub const CredentialManagementResponse = keylib.ctap.response.CredentialManagement;
 
 pub const cred_management = struct {
-    pub const RpResponse = struct {
+    pub const RelyingParty = struct {
         rp: keylib.common.RelyingParty,
-        //rpIDHash: []const u8,
         total: ?u32 = null,
-        a: std.mem.Allocator,
     };
 
     pub const Metadata = struct {
@@ -1157,20 +1155,20 @@ pub const cred_management = struct {
 
     pub fn enumerateRPsBegin(
         t: *Transport,
+        token: []const u8,
         protocol: keylib.ctap.pinuv.common.PinProtocol,
-        param: []const u8,
-        a: std.mem.Allocator,
         is_yubikey: bool,
-    ) !?RpResponse {
-        const _param = switch (protocol) {
-            .V1 => PinUvAuth.authenticate_v1(param, "\x02"),
-            .V2 => PinUvAuth.authenticate_v2(param, "\x02"),
+        a: std.mem.Allocator,
+    ) !?RelyingParty {
+        const param = switch (protocol) {
+            .V1 => PinUvAuth.authenticate_v1(token, "\x02"),
+            .V2 => PinUvAuth.authenticate_v2(token, "\x02"),
         };
 
         const request = CredentialManagement{
             .subCommand = .enumerateRPsBegin,
             .pinUvAuthProtocol = protocol,
-            .pinUvAuthParam = _param.get(),
+            .pinUvAuthParam = param.get(),
         };
 
         var arr = std.Io.Writer.Allocating.init(a);
@@ -1205,9 +1203,7 @@ pub const cred_management = struct {
                     .id = r.rp.?.id,
                     .name = r.rp.?.name,
                 },
-                //.rpIDHash = try a.dupe(u8, r.rpIDHash.?),
                 .total = r.totalRPs.?,
-                .a = a,
             };
         } else {
             return error.MissingResponse;
@@ -1216,9 +1212,9 @@ pub const cred_management = struct {
 
     pub fn enumerateRPsGetNextRP(
         t: *Transport,
-        a: std.mem.Allocator,
         is_yubikey: bool,
-    ) !?RpResponse {
+        a: std.mem.Allocator,
+    ) !?RelyingParty {
         const request = CredentialManagement{
             .subCommand = .enumerateRPsGetNextRP,
         };
@@ -1254,8 +1250,6 @@ pub const cred_management = struct {
                     .id = r.rp.?.id,
                     .name = r.rp.?.name,
                 },
-                //.rpIDHash = try a.dupe(u8, r.rpIDHash.?),
-                .a = a,
             };
         } else {
             return error.MissingResponse;

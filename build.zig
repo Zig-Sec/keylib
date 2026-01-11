@@ -101,6 +101,7 @@ pub fn build(b: *std.Build) !void {
         .{ "example/client/reset.zig", "reset" },
         .{ "example/client/cred.zig", "cred" },
         .{ "example/client/metadata.zig", "metadata" },
+        .{ "example/client/enumrp.zig", "enumrp" },
     };
 
     for (client_examples) |entry| {
