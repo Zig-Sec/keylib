@@ -50,14 +50,19 @@ pub fn getCredId(self: *const @This()) ?[]const u8 {
     return self.attestedCredentialData.?.credential_id.get();
 }
 
-pub fn getCredentialPublicKey(self: *const @This()) ?cbor.cose.Key {
+pub fn getCredentialPublicKeyCbor(self: *const @This()) ?[]const u8 {
+    if (self.attestedCredentialData == null) return null;
+    return self.attestedCredentialData.?.credential_public_key.get();
+}
+
+pub fn getCredentialPublicKey(self: *const @This()) !?cbor.cose.Key {
     if (self.attestedCredentialData == null) return null;
 
-    return cbor.parse(
+    return try cbor.parse(
         cbor.cose.Key,
-        self.attestedCredentialData.?.credential_public_key.get(),
+        try cbor.DataItem.new(self.attestedCredentialData.?.credential_public_key.get()),
         .{},
-    ) catch null;
+    );
 }
 
 pub fn decode(data: *std.Io.Reader) !@This() {

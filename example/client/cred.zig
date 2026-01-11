@@ -35,7 +35,8 @@ pub fn main() !void {
     };
     var origin: []const u8 = "localhost";
     const crossOrigin = false;
-    const user_id: [32]u8 = .{
+    var uidBuffer: [128]u8 = .{0} ** 128;
+    var user_id: []const u8 = &.{
         0x78, 0x1c, 0x78, 0x60, 0xad, 0x88, 0xd2, 0x63,
         0x32, 0x62, 0x2a, 0xf1, 0x74, 0x5d, 0xed, 0xb2,
         0xe7, 0xa4, 0x2b, 0x44, 0x89, 0x29, 0x39, 0xc5,
@@ -51,6 +52,7 @@ pub fn main() !void {
         \\-c <str>               Set a specific protection policy [TBD]
         \\-p <str>               Specify a PIN for authentication
         \\--origin <str>         An origin for the request (e.g. localhost)
+        \\--uid <str>            User ID in hexadecimal
         \\<str>
         \\
     );
@@ -88,6 +90,9 @@ pub fn main() !void {
         }
     }
     if (res.args.origin) |o| origin = o;
+    if (res.args.uid) |id| {
+        user_id = try std.fmt.hexToBytes(&uidBuffer, id);
+    }
 
     const device_index = if (res.positionals[0]) |dev| blk: {
         break :blk try std.fmt.parseInt(usize, dev, 0);
@@ -157,7 +162,7 @@ pub fn main() !void {
         .{
             .rpId = origin,
             .crossOrigin = crossOrigin,
-            .userId = &user_id,
+            .userId = user_id,
             .challenge = &challenge,
             .pin = pin,
             .rk = rk,
@@ -189,9 +194,11 @@ pub fn main() !void {
         }
     };
 
-    const credId = mc_response.authData.getCredId().?;
+    const credId = mc_response.authData.getCredId();
+    const coseKey = mc_response.authData.getCredentialPublicKeyCbor();
 
-    try stdout.print("credId: {x}\n", .{credId});
+    try stdout.print("credId: {x}\n", .{credId.?});
+    try stdout.print("coseKey: {x}\n", .{coseKey.?});
     try stdout.flush();
 }
 
@@ -206,6 +213,7 @@ const help_text =
     \\-c <str>               Set a specific protection policy [TBD]
     \\-p <str>               Specify a PIN for authentication
     \\--origin <str>         An origin for the request (e.g. localhost)
+    \\--uid <str>            User ID in hexadecimal
     \\<str>
     \\
 ;

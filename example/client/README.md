@@ -26,3 +26,13 @@ the device's PIN is changed from <curPin> to <newPin>.
 ```
 Performs a factory reset on <device>.
 ```
+
+- `cred [-t es256] [-rv] [-p pin] [--origin rpId] [--uid userid] <device>`
+
+```
+Creates a new credential on <device>.
+
+Example 1: Create a new credential with the given user id and the rpId "zigtoberfest.de" using the PIN "1234" for authentication on device 0 (see `manifest` command).
+
+$ ./cred -r --uid 00112233445566778899aabbccddeeff --origin "zigtoberfest.de" -p 1234 0
+```
