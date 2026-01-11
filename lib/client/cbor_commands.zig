@@ -1092,6 +1092,7 @@ pub const CredentialManagementResponse = keylib.ctap.response.CredentialManageme
 pub const cred_management = struct {
     pub const RelyingParty = struct {
         rp: keylib.common.RelyingParty,
+        rpIDHash: [32]u8,
         total: ?u32 = null,
     };
 
@@ -1203,6 +1204,7 @@ pub const cred_management = struct {
                     .id = r.rp.?.id,
                     .name = r.rp.?.name,
                 },
+                .rpIDHash = r.rpIDHash.?,
                 .total = r.totalRPs.?,
             };
         } else {
@@ -1250,6 +1252,7 @@ pub const cred_management = struct {
                     .id = r.rp.?.id,
                     .name = r.rp.?.name,
                 },
+                .rpIDHash = r.rpIDHash.?,
             };
         } else {
             return error.MissingResponse;

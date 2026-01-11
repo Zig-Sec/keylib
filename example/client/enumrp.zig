@@ -123,7 +123,10 @@ pub fn main() !void {
         return;
     }
 
-    try stdout.print("{s}\n", .{rp.?.rp.id.get()});
+    try stdout.print("{s}, {x}\n", .{
+        rp.?.rp.id.get(),
+        &rp.?.rpIDHash,
+    });
     try stdout.flush();
 
     if (rp.?.total) |total| {
@@ -134,7 +137,10 @@ pub fn main() !void {
                 yubikey,
                 allocator,
             )) |next_rp| {
-                try stdout.print("{s}\n", .{next_rp.rp.id.get()});
+                try stdout.print("{s}, {x}\n", .{
+                    next_rp.rp.id.get(),
+                    &rp.?.rpIDHash,
+                });
                 try stdout.flush();
             }
         }
