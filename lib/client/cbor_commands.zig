@@ -133,6 +133,107 @@ pub fn authenticatorSelection(t: *Transport, timeout: i64) !Promise {
 }
 
 // ///////////////////////////////////////
+// pinUvAuthToken
+// ///////////////////////////////////////
+
+/// Obtain a pinUvAuthToken
+///
+/// On success, returns the tuple: `(PinProtocol, token)`
+pub fn pinUvAuthToken(
+    t: *Transport,
+    allocator: std.mem.Allocator,
+    info: Info,
+    params: struct {
+        rpId: ?[]const u8 = null,
+        pin: ?[]const u8 = null,
+        permissions: client_pin.Permissions = .{},
+    },
+) !struct { keylib.ctap.pinuv.common.PinProtocol, []const u8 } {
+    var token: ?[]const u8 = null;
+
+    if (info.pinUvAuthProtocols == null or info.pinUvAuthProtocols.?.len == 0) {
+        return error.PinUvAuthProtocolNotSupportedByAuthenticator;
+    }
+
+    // Obtain a shared secret
+    const pinUvAuthProtocol = info.pinUvAuthProtocols.?[0];
+    var shared_secret = try client_pin.getKeyAgreement(
+        t,
+        pinUvAuthProtocol,
+        allocator,
+    );
+
+    // Obtain pinUvAuthToken
+    // see: https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#gettingPinUvAuthToken
+
+    //TODO: Maybe add a fallback later on, e.g. try to use a pin if using build in
+    // uv fails...
+
+    // The uv option ID is present and set to true
+    if (info.options.uv != null and info.options.uv.?) {
+        // pinUvAuthToken option ID present and true
+        if (info.options.pinUvAuthToken != null and info.options.pinUvAuthToken.?) {
+            if (params.permissions.acfg == 1) {
+                if (info.options.uvAcfg == null or !info.options.uvAcfg.?) {
+                    // When requesting the acfg permission,
+                    // getPinUvAuthTokenUsingUvWithPermissions can only be used
+                    // if the uvAcfg Option ID is present and true.
+                    return error.PinUvAuthTokenUvAcfgOptionMissingOrFalse;
+                }
+            }
+
+            token = try client_pin.getPinUvAuthTokenUsingUvWithPermissions(
+                t,
+                &shared_secret,
+                params.permissions,
+                params.rpId,
+                allocator,
+            );
+        } else { // pinUvAuthToken option ID false or absent
+            return error.PinUvAuthTokenOptionNotSupported;
+        }
+    } else if (info.options.clientPin != null and info.options.clientPin.?) {
+        if (params.pin == null) return error.PinUvAuthTokenPinMissing;
+
+        // pinUvAuthToken option ID present and true
+        if (info.options.pinUvAuthToken != null and info.options.pinUvAuthToken.?) {
+            if (params.permissions.mc == 1 or params.permissions.ga == 1) {
+                // When requesting the mc or ga permissions,
+                // getPinUvAuthTokenUsingPinWithPermissions can only be used if the
+                // noMcGaPermissionsWithClientPin Option ID is absent or set to false.
+                if (info.options.noMcGaPermissionsWithClientPin) {
+                    return error.PinUvAuthTokenMcGaWithPinNotAllowed;
+                }
+            }
+
+            token = try client_pin.getPinUvAuthTokenUsingPinWithPermissions(
+                t,
+                &shared_secret,
+                params.permissions,
+                params.rpId,
+                params.pin.?, // we have already checked that the pin is present
+                allocator,
+            );
+        } else { // the pinUvAuthToken option ID is absent
+            token = try client_pin.getPinToken(
+                t,
+                &shared_secret,
+                params.pin.?, // we have already checked that pin is present
+                allocator,
+            );
+        }
+    } else {
+        return error.PinUvAuthTokenOptionNotSupported;
+    }
+
+    if (token) |tok| {
+        return .{ pinUvAuthProtocol, tok };
+    } else {
+        return error.PinUvAuthTokenCreationFailed;
+    }
+}
+
+// ///////////////////////////////////////
 // Credential
 // ///////////////////////////////////////
 
@@ -236,6 +337,11 @@ pub const credentials = struct {
 
     pub const MakeCredentialResponse = keylib.ctap.response.MakeCredential;
 
+    /// Create a new credential using the authenticatorMakeCredential command.
+    ///
+    /// This function enforces user verification, either using builtin uv
+    /// or a pin. Creating a credential without user verification is not
+    /// supported.
     pub fn create(
         t: *Transport,
         allocator: std.mem.Allocator,
@@ -259,11 +365,6 @@ pub const credentials = struct {
             timeout: i64 = 30000,
         },
     ) !Promise {
-        // fallback when pinUvAuthToken option ID is missing or false
-        var uv: ?bool = null;
-        // auth token
-        var token: ?[]const u8 = null;
-
         if (params.pin != null and (info.options.clientPin == null or !info.options.clientPin.?)) {
             // Pin is either not supported or not set
             return error.pin;
@@ -286,63 +387,21 @@ pub const credentials = struct {
         );
 
         // ===========================
-        // Obtain a pinUvAuthParam
+        // Obtain a pinUvAuthToken
         // ===========================
 
-        const pinUvAuthProtocol = info.pinUvAuthProtocols.?[0];
-        var shared_secret = try client_pin.getKeyAgreement(
+        const pinUvAuthProtocol, const token = try pinUvAuthToken(
             t,
-            pinUvAuthProtocol,
             allocator,
+            info,
+            .{
+                .permissions = .{
+                    .mc = 1,
+                },
+                .pin = params.pin,
+                .rpId = params.rpId,
+            },
         );
-
-        // The uv option ID is present and set to true
-        if (info.options.uv != null and info.options.uv.?) {
-            // pinUvAuthToken option ID present and true
-            if (info.options.pinUvAuthToken != null and info.options.pinUvAuthToken.?) {
-                token = try client_pin.getPinUvAuthTokenUsingUvWithPermissions(
-                    t,
-                    &shared_secret,
-                    .{
-                        .mc = 1,
-                        .ga = 1,
-                    },
-                    params.rpId,
-                    allocator,
-                );
-            } else { // pinUvAuthToken option ID false or absent
-                //uv = true; // use the uv option with make credential
-                // TODO: handle this case
-            }
-        } else { // The uv option ID is false or absent
-            // pinUvAuthToken option ID present and true
-            if (info.options.pinUvAuthToken != null and info.options.pinUvAuthToken.?) {
-                token = try client_pin.getPinUvAuthTokenUsingPinWithPermissions(
-                    t,
-                    &shared_secret,
-                    .{
-                        .mc = 1,
-                        .ga = 1,
-                    },
-                    params.rpId,
-                    params.pin.?,
-                    allocator,
-                );
-            } else { // the pinUvAuthToken option ID is absent
-                if (info.options.clientPin != null and info.options.clientPin.?) {
-                    token = try client_pin.getPinToken(
-                        t,
-                        &shared_secret,
-                        params.pin.?, // we have already checked that pin is present
-                        allocator,
-                    );
-                }
-            }
-        }
-
-        if (uv == null and token == null) {
-            uv = false;
-        }
 
         // ===========================
         // Prepare data
@@ -366,24 +425,22 @@ pub const credentials = struct {
             .pubKeyCredParams = (try keylib.common.dt.ABSPublicKeyCredentialParameters.fromSlice(&.{params.type})).?,
             .options = .{
                 .rk = params.rk,
-                .uv = uv,
                 .up = null,
+                .uv = null, // uv must not be set when using pinUvAuthParam
             },
         };
 
-        if (token) |tok| {
-            mc.pinUvAuthParam = switch (pinUvAuthProtocol) {
-                .V1 => PinUvAuth.authenticate_v1(
-                    tok,
-                    &client_data_hash,
-                ),
-                .V2 => PinUvAuth.authenticate_v2(
-                    tok,
-                    &client_data_hash,
-                ),
-            };
-            mc.pinUvAuthProtocol = pinUvAuthProtocol;
-        } // TODO handle the other authentications scenarios
+        mc.pinUvAuthParam = switch (pinUvAuthProtocol) {
+            .V1 => PinUvAuth.authenticate_v1(
+                token,
+                &client_data_hash,
+            ),
+            .V2 => PinUvAuth.authenticate_v2(
+                token,
+                &client_data_hash,
+            ),
+        };
+        mc.pinUvAuthProtocol = pinUvAuthProtocol;
 
         // ===========================
         // Sending request
@@ -395,7 +452,7 @@ pub const credentials = struct {
         try arr.writer.writeByte(0x01);
         try cbor.stringify(mc, .{}, &arr.writer);
 
-        //std.debug.print("{x}\n", .{arr.written()});
+        std.debug.print("{x}\n", .{arr.written()});
 
         try t.write(arr.written());
 
