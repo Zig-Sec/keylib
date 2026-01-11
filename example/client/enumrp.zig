@@ -139,7 +139,7 @@ pub fn main() !void {
             )) |next_rp| {
                 try stdout.print("{s}, {x}\n", .{
                     next_rp.rp.id.get(),
-                    &rp.?.rpIDHash,
+                    &next_rp.rpIDHash,
                 });
                 try stdout.flush();
             }
