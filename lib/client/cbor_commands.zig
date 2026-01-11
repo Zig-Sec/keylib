@@ -1097,21 +1097,63 @@ pub const cred_management = struct {
         a: std.mem.Allocator,
     };
 
+    pub const Metadata = struct {
+        existingResidentCredentialsCount: u32,
+        maxPossibleRemainingResidentCredentialsCount: u32,
+    };
+
     /// Get credential metadata information.
     ///
-    /// The authenticator MUST support `authenticatorCredentialManagement´.
-    //pub fn getCredsMetadata(
-    //    t: *Transport,
-    //    info: Info,
-    //    token: []const u8,
-    //    pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
-    //    is_yubikey: bool,
-    //    a: std.mem.Allocator,
-    //) !Promise {
-    //    if ((info.options.credMgmt == null or !info.options.credMgmt.?) and (info.options.credentialMgmtPreview == null or !info.options.credentialMgmtPreview.?)) {
-    //        return error.CredentialManagementNotSupportedByAuthenticator;
-    //    }
-    //}
+    // The authenticator MUST support `authenticatorCredentialManagement´.
+    pub fn getCredsMetadata(
+        t: *Transport,
+        token: []const u8,
+        pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
+        is_yubikey: bool,
+        a: std.mem.Allocator,
+    ) !Metadata {
+        //if ((info.options.credMgmt == null or !info.options.credMgmt.?) and (info.options.credentialMgmtPreview == null or !info.options.credentialMgmtPreview.?)) {
+        //    return error.CredentialManagementNotSupportedByAuthenticator;
+        //}
+
+        const param = switch (pinUvAuthProtocol) {
+            .V1 => PinUvAuth.authenticate_v1(token, "\x01"),
+            .V2 => PinUvAuth.authenticate_v2(token, "\x01"),
+        };
+
+        const request = CredentialManagement{
+            .subCommand = .getCredsMetadata,
+            .pinUvAuthProtocol = pinUvAuthProtocol,
+            .pinUvAuthParam = param.get(),
+        };
+
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(if (is_yubikey) 0x41 else 0x0a);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        if (try t.read(a)) |response| {
+            defer a.free(response);
+
+            var r = try cbor.parse(
+                CredentialManagementResponse,
+                try cbor.DataItem.new(response[1..]),
+                .{ .allocator = a },
+            );
+            defer r.deinit(a);
+
+            if (r.existingResidentCredentialsCount == null) return error.MissingPar;
+            if (r.maxPossibleRemainingResidentCredentialsCount == null) return error.MissingPar;
+
+            return .{
+                .existingResidentCredentialsCount = r.existingResidentCredentialsCount.?,
+                .maxPossibleRemainingResidentCredentialsCount = r.maxPossibleRemainingResidentCredentialsCount.?,
+            };
+        } else return error.MissingResponse;
+    }
 
     pub fn enumerateRPsBegin(
         t: *Transport,

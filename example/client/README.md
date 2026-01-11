@@ -36,3 +36,14 @@ Example 1: Create a new credential with the given user id and the rpId "zigtober
 
 $ ./cred -r --uid 00112233445566778899aabbccddeeff --origin "zigtoberfest.de" -p 1234 0
 ```
+
+- `metadata <device> [pin] [y/n]`
+
+```
+Obtain credentials metadata information from the <device>.
+
+Use the `y` option for YubiKeys (and possibly other authenticators using the 
+credMgmtPreview) as some use a differnt command code.
+
+Example: $ ./metadata 0 1234 y
+```
