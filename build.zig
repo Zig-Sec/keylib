@@ -126,29 +126,14 @@ pub fn build(b: *std.Build) !void {
         b.installArtifact(ce);
     }
 
-    const client_example_mod = b.createModule(.{
-        .root_source_file = b.path("example/client.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    var client_example = b.addExecutable(.{
-        .name = "client",
-        .root_module = client_example_mod,
-    });
-    client_example.root_module.addImport("client", client_module);
-
-    const client_example_step = b.step("client-example", "Build the client application example");
-    client_example_step.dependOn(&b.addInstallArtifact(client_example, .{}).step);
+    // Authenticator Examples
+    // ++++++++++++++++++++++++++++++++++++++++++++++++
 
     const authenticator_example_mod = b.createModule(.{
         .root_source_file = b.path("example/authenticator.zig"),
         .target = target,
         .optimize = optimize,
     });
-
-    // Authenticator Examples
-    // ++++++++++++++++++++++++++++++++++++++++++++++++
 
     var authenticator_example = b.addExecutable(.{
         .name = "authenticator",
