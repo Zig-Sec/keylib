@@ -147,6 +147,23 @@ pub fn main() !void {
     defer info.deinit(allocator);
 
     // ============================================
+    // Obtain pinUvAuthToken
+    // ============================================
+
+    const pinUvAuthProtocol, const token = try client.cbor_commands.pinUvAuthToken(
+        device,
+        allocator,
+        info,
+        .{
+            .permissions = .{
+                .mc = 1,
+            },
+            .pin = pin,
+            .rpId = origin,
+        },
+    );
+
+    // ============================================
     // Prepare the data for the request
     // ============================================
 
@@ -157,14 +174,14 @@ pub fn main() !void {
 
     var promise = try client.cbor_commands.credentials.create(
         device,
+        token,
+        pinUvAuthProtocol,
         allocator,
-        info,
         .{
             .rpId = origin,
             .crossOrigin = crossOrigin,
             .userId = user_id,
             .challenge = &challenge,
-            .pin = pin,
             .rk = rk,
         },
     );

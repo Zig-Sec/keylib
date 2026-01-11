@@ -344,8 +344,9 @@ pub const credentials = struct {
     /// supported.
     pub fn create(
         t: *Transport,
+        token: []const u8,
+        pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
         allocator: std.mem.Allocator,
-        info: Info,
         params: struct {
             rpId: []const u8,
             userId: []const u8,
@@ -361,19 +362,9 @@ pub const credentials = struct {
                 .alg = .Es256,
                 .type = .@"public-key",
             },
-            pin: ?[]const u8 = null,
             timeout: i64 = 30000,
         },
     ) !Promise {
-        if (params.pin != null and (info.options.clientPin == null or !info.options.clientPin.?)) {
-            // Pin is either not supported or not set
-            return error.pin;
-        }
-        if (params.uv and (info.options.uv == null or !info.options.uv.?)) {
-            // UV is either not supported or not configured
-            return error.uv;
-        }
-
         // ===========================
         // Create client data hash
         // ===========================
@@ -384,23 +375,6 @@ pub const credentials = struct {
             params.challenge,
             params.rpId,
             params.crossOrigin,
-        );
-
-        // ===========================
-        // Obtain a pinUvAuthToken
-        // ===========================
-
-        const pinUvAuthProtocol, const token = try pinUvAuthToken(
-            t,
-            allocator,
-            info,
-            .{
-                .permissions = .{
-                    .mc = 1,
-                },
-                .pin = params.pin,
-                .rpId = params.rpId,
-            },
         );
 
         // ===========================
@@ -452,7 +426,7 @@ pub const credentials = struct {
         try arr.writer.writeByte(0x01);
         try cbor.stringify(mc, .{}, &arr.writer);
 
-        std.debug.print("{x}\n", .{arr.written()});
+        //std.debug.print("{x}\n", .{arr.written()});
 
         try t.write(arr.written());
 
@@ -516,7 +490,7 @@ pub const credentials = struct {
         try arr.writer.writeByte(cmd);
         try cbor.stringify(request, .{}, &arr.writer);
 
-        std.log.info("{s}", .{arr.written()});
+        //std.log.info("{s}", .{arr.written()});
 
         try t.write(arr.written());
 
@@ -1122,6 +1096,22 @@ pub const cred_management = struct {
         total: ?u32 = null,
         a: std.mem.Allocator,
     };
+
+    /// Get credential metadata information.
+    ///
+    /// The authenticator MUST support `authenticatorCredentialManagement´.
+    //pub fn getCredsMetadata(
+    //    t: *Transport,
+    //    info: Info,
+    //    token: []const u8,
+    //    pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
+    //    is_yubikey: bool,
+    //    a: std.mem.Allocator,
+    //) !Promise {
+    //    if ((info.options.credMgmt == null or !info.options.credMgmt.?) and (info.options.credentialMgmtPreview == null or !info.options.credentialMgmtPreview.?)) {
+    //        return error.CredentialManagementNotSupportedByAuthenticator;
+    //    }
+    //}
 
     pub fn enumerateRPsBegin(
         t: *Transport,
