@@ -2,9 +2,17 @@
 
 <a href="https://liberapay.com/r4gus/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a>
 
-FIDO2 compatible authenticator and client library written in [Zig](https://ziglang.org/). The authenticator part requires __zero dynamic allocations__.
+FIDO2 compatible *authenticator* and *client* library written in [Zig](https://ziglang.org/). The authenticator framework requires __zero dynamic allocations__.
 
-If you want to see an example on how the library could be used, check out [PassKeeZ](https://github.com/r4gus/keypass).
+This package can serve two purposes:
+
+1. Create FIDO2/ Passkey compatible authenticators:
+    - One example is [PassKeeZ](https://codeberg.org/r4gus/PassKeeZ)
+    - but you can also use the library on embedded devices, e.g. to create your own security key (similar to YubiKey, SoloKey, ...)
+2. Add FIDO2/ Passkey support to your application using the client module.
+    - We provide a variety of examples [here](example/client/README.md)
+
+> The CTAP2 specification offers a lot of configurations for authenticators. If you're looking for a specific example and can't find it here, consider opening an issue. I'm open to add new features as long as you're also willing to contribute (in some form) to the project.
 
 | Zig version | keylib version |
 |:-----------:|:--------------:|
@@ -48,24 +56,9 @@ exe.root_module.addImport("keylib", keylib_module);
 
 Then within your project just use `@import("keylib")` (or one of the other modules).
 
-## Design
+## Authenticator Framework Design
 
 ![keylib design](static/design.png)
-
-## Getting Started with keylib
-
-To get started it's best to look at one of the following examples:
-
-> The CTAP2 specification offers a lot of configurations for authenticators. If you're looking for a specific example and can't find it here, consider opening an issue. I'm open to add new features as long as you're also willing to contribute (in some form) to the project.
-
-### Authenticator
-
-* [https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig](https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig)
-    * **Please read the description at the top of the source code for instructions on how to setup uhid correctly**
-
-### Client
-
-- [`authenticatorGetInfo` example](example/client/info.zig)
 
 ## QA
 
