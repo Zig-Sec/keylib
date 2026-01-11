@@ -61,3 +61,13 @@ credMgmtPreview) as some use a differnt command code.
 Example: $ ./enumrp 0 1234 y
 ```
 
+- `./enumcred [-y] [-p <pin>] <device> <origin/rpId>`
+
+```
+Enumerate the resident keys for <origin> present on <device>.
+
+Use the `y` option for YubiKeys (and possibly other authenticators using the 
+credMgmtPreview) as some use a differnt command code.
+
+Example: $ ./enumcred -y -p 1234 0 zigtoberfest.de
+```

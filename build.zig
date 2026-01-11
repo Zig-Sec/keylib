@@ -102,6 +102,7 @@ pub fn build(b: *std.Build) !void {
         .{ "example/client/cred.zig", "cred" },
         .{ "example/client/metadata.zig", "metadata" },
         .{ "example/client/enumrp.zig", "enumrp" },
+        .{ "example/client/enumcred.zig", "enumcred" },
     };
 
     for (client_examples) |entry| {
@@ -119,9 +120,7 @@ pub fn build(b: *std.Build) !void {
         });
         ce.root_module.addImport("client", client_module);
 
-        if (std.mem.eql(u8, name, "cred")) { // for command line argument parsing
-            ce.root_module.addImport("clap", clap_dep.module("clap"));
-        }
+        ce.root_module.addImport("clap", clap_dep.module("clap"));
 
         b.installArtifact(ce);
     }

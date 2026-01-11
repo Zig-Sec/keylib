@@ -1096,6 +1096,14 @@ pub const cred_management = struct {
         total: ?u32 = null,
     };
 
+    pub const UserData = struct {
+        user: keylib.common.User,
+        credentialID: keylib.common.PublicKeyCredentialDescriptor,
+        publicKey: cbor.cose.Key,
+        credProtect: keylib.ctap.extensions.CredentialCreationPolicy,
+        totalCredentials: ?u32 = null,
+    };
+
     pub const Metadata = struct {
         existingResidentCredentialsCount: u32,
         maxPossibleRemainingResidentCredentialsCount: u32,
@@ -1253,6 +1261,126 @@ pub const cred_management = struct {
                     .name = r.rp.?.name,
                 },
                 .rpIDHash = r.rpIDHash.?,
+            };
+        } else {
+            return error.MissingResponse;
+        }
+    }
+
+    pub fn enumerateCredentialsBegin(
+        t: *Transport,
+        token: []const u8,
+        protocol: keylib.ctap.pinuv.common.PinProtocol,
+        rpIDHash: [32]u8,
+        is_yubikey: bool,
+        a: std.mem.Allocator,
+    ) !?UserData {
+        var request = CredentialManagement{
+            .subCommand = .enumerateCredentialsBegin,
+            .subCommandParams = .{
+                .rpIDHash = rpIDHash,
+            },
+        };
+
+        // Create Param
+
+        var scp = std.Io.Writer.Allocating.init(a);
+        defer scp.deinit();
+        try scp.writer.writeByte(0x04);
+        try cbor.stringify(request.subCommandParams.?, .{}, &scp.writer);
+        //std.debug.print("{x}\n", .{scp.written()});
+        const param = switch (protocol) {
+            .V1 => PinUvAuth.authenticate_v1(token, scp.written()),
+            .V2 => PinUvAuth.authenticate_v2(token, scp.written()),
+        };
+        request.pinUvAuthProtocol = protocol;
+        request.pinUvAuthParam = param.get();
+
+        // Send request
+
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(if (is_yubikey) 0x41 else 0x0a);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        if (try t.read(a)) |response| {
+            defer a.free(response);
+
+            if (response[0] == 0x2e) {
+                // no credentials
+                return null;
+            }
+
+            if (response[0] != 0) {
+                return err.errorFromInt(response[0]);
+            }
+
+            var r = try cbor.parse(CredentialManagementResponse, try cbor.DataItem.new(response[1..]), .{ .allocator = a });
+            defer r.deinit(a);
+
+            if (r.user == null) return error.MissingPar;
+            if (r.credentialID == null) return error.MissingPar;
+            if (r.publicKey == null) return error.MissingPar;
+            if (r.totalCredentials == null) return error.MissingPar;
+            if (r.credProtect == null) return error.MissingPar;
+
+            return .{
+                .user = r.user.?,
+                .credentialID = r.credentialID.?,
+                .publicKey = r.publicKey.?,
+                .totalCredentials = r.totalCredentials.?,
+                .credProtect = r.credProtect.?,
+            };
+        } else {
+            return error.MissingResponse;
+        }
+    }
+
+    pub fn enumerateCredentialsGetNextCredential(
+        t: *Transport,
+        is_yubikey: bool,
+        a: std.mem.Allocator,
+    ) !?UserData {
+        const request = CredentialManagement{
+            .subCommand = .enumerateCredentialsGetNextCredential,
+        };
+
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(if (is_yubikey) 0x41 else 0x0a);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        if (try t.read(a)) |response| {
+            defer a.free(response);
+
+            if (response[0] == 0x2e) {
+                // no credentials
+                return null;
+            }
+
+            if (response[0] != 0) {
+                return err.errorFromInt(response[0]);
+            }
+
+            var r = try cbor.parse(CredentialManagementResponse, try cbor.DataItem.new(response[1..]), .{ .allocator = a });
+            defer r.deinit(a);
+
+            if (r.user == null) return error.MissingPar;
+            if (r.credentialID == null) return error.MissingPar;
+            if (r.publicKey == null) return error.MissingPar;
+            if (r.credProtect == null) return error.MissingPar;
+
+            return .{
+                .user = r.user.?,
+                .credentialID = r.credentialID.?,
+                .publicKey = r.publicKey.?,
+                .credProtect = r.credProtect.?,
             };
         } else {
             return error.MissingResponse;
