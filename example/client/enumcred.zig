@@ -149,6 +149,17 @@ pub fn main() !void {
     try stdout.print("Credential (1)\n", .{});
     try stdout.print("  userId: {x}\n", .{user.?.user.id.get()});
     try stdout.print("  credId: {x}\n", .{user.?.credentialID.id.get()});
+    switch (user.?.publicKey) {
+        .P256 => |k| {
+            // sec1 (https://www.secg.org/sec1-v2.pdf) 2.3.3
+            // 04 || X || Y
+            try stdout.print("  coseKey ({any}): 04{x}{x}\n", .{
+                k.alg,
+                &k.x,
+                &k.y,
+            });
+        },
+    }
     try stdout.flush();
 
     if (user.?.totalCredentials) |total| {
@@ -162,6 +173,17 @@ pub fn main() !void {
                 try stdout.print("Credential ({d})\n", .{i + 1});
                 try stdout.print("  userId: {x}\n", .{next_user.user.id.get()});
                 try stdout.print("  credId: {x}\n", .{next_user.credentialID.id.get()});
+                switch (next_user.publicKey) {
+                    .P256 => |k| {
+                        // sec1 (https://www.secg.org/sec1-v2.pdf) 2.3.3
+                        // 04 || X || Y
+                        try stdout.print("  coseKey ({any}): 04{x}{x}\n", .{
+                            k.alg,
+                            &k.x,
+                            &k.y,
+                        });
+                    },
+                }
                 try stdout.flush();
             }
         }

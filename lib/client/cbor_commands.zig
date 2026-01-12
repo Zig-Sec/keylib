@@ -447,7 +447,7 @@ pub const credentials = struct {
             // TODO: add allow list
             timeout: i64 = 30000,
         },
-    ) !Promise {
+    ) !struct { Promise, [Sha256.digest_length]u8 } {
         // ===========================
         // Create client data hash
         // ===========================
@@ -499,7 +499,7 @@ pub const credentials = struct {
 
         try t.write(arr.written());
 
-        return Promise.new(t, params.timeout);
+        return .{ Promise.new(t, params.timeout), client_data_hash };
     }
 
     pub fn getNextAssertion(

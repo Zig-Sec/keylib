@@ -212,10 +212,20 @@ pub fn main() !void {
     };
 
     const credId = mc_response.authData.getCredId();
-    const coseKey = mc_response.authData.getCredentialPublicKeyCbor();
+    const coseKey = try mc_response.authData.getCredentialPublicKey();
 
     try stdout.print("credId: {x}\n", .{credId.?});
-    try stdout.print("coseKey: {x}\n", .{coseKey.?});
+    switch (coseKey.?) {
+        .P256 => |k| {
+            // sec1 (https://www.secg.org/sec1-v2.pdf) 2.3.3
+            // 04 || X || Y
+            try stdout.print("coseKey ({any}): 04{x}{x}\n", .{
+                k.alg,
+                &k.x,
+                &k.y,
+            });
+        },
+    }
     try stdout.flush();
 }
 

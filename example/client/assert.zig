@@ -64,8 +64,14 @@ pub fn main() !void {
     const device_index = try std.fmt.parseInt(usize, res.positionals[0][0], 0);
     const origin = res.positionals[0][1];
     var keyBuffer: [512]u8 = .{0} ** 512;
-    const key = try std.fmt.hexToBytes(&keyBuffer, res.positionals[0][2]);
-    _ = key; // TODO: implement signature validation
+    const raw_key = try std.fmt.hexToBytes(&keyBuffer, res.positionals[0][2]);
+
+    const pub_key = std.crypto.sign.ecdsa.EcdsaP256Sha256.PublicKey.fromSec1(raw_key) catch {
+        try stderr.print("error: expected es256 key in sec1 format\n", .{});
+        try stderr.flush();
+        return;
+    };
+    const key = client.cose.Key.fromP256Pub(.Es256, pub_key);
 
     // ============================================
     // Open device
@@ -137,7 +143,7 @@ pub fn main() !void {
     var challenge: [32]u8 = undefined;
     std.crypto.random.bytes(&challenge);
 
-    var promise = try client.cbor_commands.credentials.getAssertion(
+    var promise, const clientDataHash = try client.cbor_commands.credentials.getAssertion(
         device,
         token,
         pinUvAuthProtocol,
@@ -174,7 +180,20 @@ pub fn main() !void {
         }
     };
 
-    try stdout.print("{any}\n", .{ga_response});
+    //  authenticatorData || clientDataHash
+    //
+    //                     |
+    //                     v
+    //
+    //      publicKey ---> verify <--- signature
+    //                        |
+    //                        v
+    //                  true/ false
+    var valid = try key.verify(ga_response.signature, &.{
+        ga_response.authData,
+        &clientDataHash,
+    });
+    try stdout.print("valid: {s}\n", .{if (valid) "yes" else "no"});
 
     if (ga_response.numberOfCredentials) |credNum| {
         var i: usize = 1;
@@ -210,7 +229,11 @@ pub fn main() !void {
                 }
             };
 
-            try stdout.print("{any}\n", .{next});
+            valid = try key.verify(next.signature, &.{
+                next.authData,
+                &clientDataHash,
+            });
+            try stdout.print("valid: {s}\n", .{if (valid) "yes" else "no"});
         }
     }
 
