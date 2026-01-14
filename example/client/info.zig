@@ -7,8 +7,6 @@
 const std = @import("std");
 
 const client = @import("client");
-const authenticatorGetInfo = client.cbor_commands.authenticatorGetInfo;
-const Info = client.cbor_commands.Info;
 
 // Allocator to be used for allocating dynamic memory.
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -68,7 +66,7 @@ pub fn main() !void {
     // This is usually the first step regardless of what you want to do
     // as the returned data tells us more about the capabilities of the
     // authenticator.
-    var promise = try authenticatorGetInfo(device);
+    var promise = try client.getInfo(device);
 
     // All commands return a "Promise", i.e. a data structure
     // that can represent different states. Usually, the initial
@@ -89,7 +87,7 @@ pub fn main() !void {
                 }
             },
             .fulfilled => {
-                break :outer try state.deserializeCbor(Info, allocator);
+                break :outer try state.deserializeCbor(client.Info, allocator);
             },
             .rejected => |e| {
                 return e;

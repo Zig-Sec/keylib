@@ -114,7 +114,6 @@ pub fn authenticatorGetInfo(t: *Transport) !Promise {
 // Reset (0x07)
 // ///////////////////////////////////////
 
-/// Make a authenticatorGetInfo request
 pub fn authenticatorReset(t: *Transport, tout: i64) !Promise {
     const cmd = "\x07";
     try t.write(cmd);
@@ -1147,10 +1146,6 @@ pub const cred_management = struct {
         is_yubikey: bool,
         a: std.mem.Allocator,
     ) !Metadata {
-        //if ((info.options.credMgmt == null or !info.options.credMgmt.?) and (info.options.credentialMgmtPreview == null or !info.options.credentialMgmtPreview.?)) {
-        //    return error.CredentialManagementNotSupportedByAuthenticator;
-        //}
-
         const param = switch (pinUvAuthProtocol) {
             .V1 => PinUvAuth.authenticate_v1(token, "\x01"),
             .V2 => PinUvAuth.authenticate_v2(token, "\x01"),

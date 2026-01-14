@@ -6,9 +6,6 @@
 const std = @import("std");
 
 const client = @import("client");
-const client_pin = client.cbor_commands.client_pin;
-const authenticatorGetInfo = client.cbor_commands.authenticatorGetInfo;
-const Info = client.cbor_commands.Info;
 
 // Allocator to be used for allocating dynamic memory.
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -86,16 +83,16 @@ pub fn main() !void {
     // Obtain information about the device
     // ============================================
 
-    var info_state = try (try authenticatorGetInfo(device)).await(allocator);
+    var info_state = try (try client.getInfo(device)).await(allocator);
     defer info_state.deinit(allocator);
-    const info = try info_state.deserializeCbor(Info, allocator);
+    const info = try info_state.deserializeCbor(client.Info, allocator);
     defer info.deinit(allocator);
 
     // ============================================
     // Obtain pinUvAuthToken
     // ============================================
 
-    const pinUvAuthProtocol, const token = try client.cbor_commands.pinUvAuthToken(
+    const pinUvAuthProtocol, const token = try client.pinUvAuthToken(
         device,
         allocator,
         info,
@@ -111,7 +108,7 @@ pub fn main() !void {
     // Prepare the data for the request
     // ============================================
 
-    const metadata = try client.cbor_commands.cred_management.getCredsMetadata(
+    const metadata = try client.cm.getCredsMetadata(
         device,
         token,
         pinUvAuthProtocol,

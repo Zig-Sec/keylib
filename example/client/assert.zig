@@ -7,9 +7,6 @@ const std = @import("std");
 const clap = @import("clap");
 
 const client = @import("client");
-const client_pin = client.cbor_commands.client_pin;
-const authenticatorGetInfo = client.cbor_commands.authenticatorGetInfo;
-const Info = client.cbor_commands.Info;
 
 // Allocator to be used for allocating dynamic memory.
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -112,16 +109,16 @@ pub fn main() !void {
     // Obtain information about the device
     // ============================================
 
-    var info_state = try (try authenticatorGetInfo(device)).await(allocator);
+    var info_state = try (try client.getInfo(device)).await(allocator);
     defer info_state.deinit(allocator);
-    const info = try info_state.deserializeCbor(Info, allocator);
+    const info = try info_state.deserializeCbor(client.Info, allocator);
     defer info.deinit(allocator);
 
     // ============================================
     // Obtain pinUvAuthToken
     // ============================================
 
-    const pinUvAuthProtocol, const token = try client.cbor_commands.pinUvAuthToken(
+    const pinUvAuthProtocol, const token = try client.pinUvAuthToken(
         device,
         allocator,
         info,
@@ -143,7 +140,7 @@ pub fn main() !void {
     var challenge: [32]u8 = undefined;
     std.crypto.random.bytes(&challenge);
 
-    var promise, const clientDataHash = try client.cbor_commands.credentials.getAssertion(
+    var promise, const clientDataHash = try client.getAssertion(
         device,
         token,
         pinUvAuthProtocol,
@@ -170,7 +167,7 @@ pub fn main() !void {
             .fulfilled => {
                 //std.debug.print("response: {x}", .{state.fulfilled});
                 break :outer try state.deserializeCbor(
-                    client.cbor_commands.credentials.GetAssertionResponse,
+                    client.GetAssertionResponse,
                     allocator,
                 );
             },
@@ -198,7 +195,7 @@ pub fn main() !void {
     if (ga_response.numberOfCredentials) |credNum| {
         var i: usize = 1;
         while (i < credNum) : (i += 1) {
-            promise = try client.cbor_commands.credentials.getNextAssertion(
+            promise = try client.getNextAssertion(
                 device,
                 allocator,
                 .{},
@@ -219,7 +216,7 @@ pub fn main() !void {
                     .fulfilled => {
                         //std.debug.print("response: {x}", .{state.fulfilled});
                         break :outer try state.deserializeCbor(
-                            client.cbor_commands.credentials.GetAssertionResponse,
+                            client.GetAssertionResponse,
                             allocator,
                         );
                     },

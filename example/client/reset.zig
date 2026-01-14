@@ -1,13 +1,12 @@
-//! This example shows how to send a 'authenticatorGetInfo' request
+//! This example shows how to reset and authenticator.
 //! to a authenticator.
 //!
-//! Copyright (c) 2022 - 2025 David P. Sugar.
+//! Copyright (c) 2022 - 2026 David P. Sugar.
 //! Use of this source code is governed by the MIT license.
 
 const std = @import("std");
 
 const client = @import("client");
-const authenticatorReset = client.cbor_commands.authenticatorReset;
 
 // Allocator to be used for allocating dynamic memory.
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -68,7 +67,7 @@ pub fn main() !void {
     //
     // This should be done within the first 10 seconds of powering
     // the authenticator and is a destructive operation.
-    var promise = try authenticatorReset(device, 10000);
+    var promise = try client.reset(device, 10000);
 
     // All commands return a "Promise", i.e. a data structure
     // that can represent different states. Usually, the initial

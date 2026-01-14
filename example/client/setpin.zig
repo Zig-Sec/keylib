@@ -6,9 +6,6 @@
 const std = @import("std");
 
 const client = @import("client");
-const client_pin = client.cbor_commands.client_pin;
-const authenticatorGetInfo = client.cbor_commands.authenticatorGetInfo;
-const Info = client.cbor_commands.Info;
 
 // Allocator to be used for allocating dynamic memory.
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -73,10 +70,10 @@ pub fn main() !void {
     // Now lets get some information about the authenticator.
     // In this case we're going to use a blocking operation that waits for
     // the result.
-    var info_state = try (try authenticatorGetInfo(device)).await(allocator);
+    var info_state = try (try client.getInfo(device)).await(allocator);
     defer info_state.deinit(allocator);
     // We then have to deserialize the returned CBOR data.
-    const info = try info_state.deserializeCbor(Info, allocator);
+    const info = try info_state.deserializeCbor(client.Info, allocator);
     defer info.deinit(allocator);
 
     // If the credMgmt option is not present or false, exit.
@@ -100,7 +97,7 @@ pub fn main() !void {
 
     const pinUvAuthProtocol = info.pinUvAuthProtocols.?[0];
 
-    var shared_secret = try client_pin.getKeyAgreement(
+    var shared_secret = try client.getKeyAgreement(
         device,
         pinUvAuthProtocol,
         allocator,
@@ -113,7 +110,7 @@ pub fn main() !void {
             return;
         }
 
-        var cpr = client_pin.changePin(
+        var cpr = client.changePin(
             device,
             &shared_secret,
             curPin.?,
@@ -141,7 +138,7 @@ pub fn main() !void {
             },
         }
     } else { // set a new PIN
-        const spr = client_pin.setPin(
+        const spr = client.setPin(
             device,
             &shared_secret,
             newPin,
