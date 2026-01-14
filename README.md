@@ -12,7 +12,7 @@ This package can serve two purposes:
 2. Add FIDO2/ Passkey support to your application using the client module.
     - We provide a variety of examples [here](example/client/README.md)
 
-> The CTAP2 specification offers a lot of configurations for authenticators. If you're looking for a specific example and can't find it here, consider opening an issue. I'm open to add new features as long as you're also willing to contribute (in some form) to the project.
+> The CTAP2 specification offers a lot of configurations for authenticators. If you're looking for a specific example and can't find it here or run into a bug, consider opening an issue. I'm open to add new features as long as you're also willing to contribute (in some form) to the project.
 
 | Zig version | keylib version |
 |:-----------:|:--------------:|
