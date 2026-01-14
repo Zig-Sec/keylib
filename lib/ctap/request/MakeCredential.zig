@@ -61,7 +61,7 @@ pub fn cborStringify(self: *const @This(), options: cbor.Options, out: *std.Io.W
             .{ .name = "extensions", .field_options = .{ .alias = "6", .serialization_type = .Integer } },
             .{ .name = "options", .field_options = .{ .alias = "7", .serialization_type = .Integer } },
             .{ .name = "pinUvAuthParam", .field_options = .{ .alias = "8", .serialization_type = .Integer } },
-            .{ .name = "pinUvAuthProtocol", .field_options = .{ .alias = "9", .serialization_type = .Integer } },
+            .{ .name = "pinUvAuthProtocol", .field_options = .{ .alias = "9", .serialization_type = .Integer }, .value_options = .{ .enum_serialization_type = .Integer } },
             .{ .name = "enterpriseAttestation", .field_options = .{ .alias = "10", .serialization_type = .Integer } },
         },
     }, out);
@@ -80,7 +80,7 @@ pub fn cborParse(item: cbor.DataItem, options: cbor.Options) !@This() {
             .{ .name = "extensions", .field_options = .{ .alias = "6", .serialization_type = .Integer } },
             .{ .name = "options", .field_options = .{ .alias = "7", .serialization_type = .Integer } },
             .{ .name = "pinUvAuthParam", .field_options = .{ .alias = "8", .serialization_type = .Integer } },
-            .{ .name = "pinUvAuthProtocol", .field_options = .{ .alias = "9", .serialization_type = .Integer } },
+            .{ .name = "pinUvAuthProtocol", .field_options = .{ .alias = "9", .serialization_type = .Integer }, .value_options = .{ .enum_serialization_type = .Integer } },
             .{ .name = "enterpriseAttestation", .field_options = .{ .alias = "10", .serialization_type = .Integer } },
         },
     });

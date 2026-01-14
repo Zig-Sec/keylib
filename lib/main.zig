@@ -207,20 +207,13 @@ pub const ctap = struct {
 
     /// CTAP extensions
     pub const extensions = struct {
-        //pub const Extension = enum {
-        //    credProtect,
-        //    credBlob,
-        //    largeBlobKey,
-        //    minPinLength,
-        //    @"hmac-secret",
-        //};
-
         /// Map of optional extensions
         pub const Extensions = @import("ctap/extensions/Extensions.zig");
         /// Protection level for credentials
         pub const CredentialCreationPolicy = @import("ctap/extensions/CredentialCreationPolicy.zig").CredentialCreationPolicy;
         /// Obtaining a shared secret between client and authenticator
         pub const HmacSecret = @import("ctap/extensions/HmacSecret.zig").HmacSecret;
+        pub const HmacSecretGet = @import("ctap/extensions/HmacSecret.zig").HmacSecretGet;
     };
 
     test "ctap tests" {

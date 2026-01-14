@@ -26,6 +26,11 @@ pub fn build(b: *std.Build) !void {
     });
     const uuid_module = uuid_dep.module("uuid");
 
+    const clap_dep = b.dependency("clap", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     // ++++++++++++++++++++++++++++++++++++++++++++
     // Module
     // ++++++++++++++++++++++++++++++++++++++++++++
@@ -85,20 +90,45 @@ pub fn build(b: *std.Build) !void {
     // Examples
     // ------------------------------------------------
 
-    const client_example_mod = b.createModule(.{
-        .root_source_file = b.path("example/client.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
+    // Client Examples
+    // ++++++++++++++++++++++++++++++++++++++++++++++++
 
-    var client_example = b.addExecutable(.{
-        .name = "client",
-        .root_module = client_example_mod,
-    });
-    client_example.root_module.addImport("client", client_module);
+    const client_examples: []const [2][]const u8 = &.{
+        .{ "example/client/info.zig", "info" },
+        .{ "example/client/manifest.zig", "manifest" },
+        .{ "example/client/select.zig", "select" },
+        .{ "example/client/setpin.zig", "setpin" },
+        .{ "example/client/reset.zig", "reset" },
+        .{ "example/client/cred.zig", "cred" },
+        .{ "example/client/metadata.zig", "metadata" },
+        .{ "example/client/enumrp.zig", "enumrp" },
+        .{ "example/client/enumcred.zig", "enumcred" },
+        .{ "example/client/delete.zig", "delete" },
+        .{ "example/client/assert.zig", "assert" },
+    };
 
-    const client_example_step = b.step("client-example", "Build the client application example");
-    client_example_step.dependOn(&b.addInstallArtifact(client_example, .{}).step);
+    for (client_examples) |entry| {
+        const path, const name = entry;
+
+        const ce_mod = b.createModule(.{
+            .root_source_file = b.path(path),
+            .target = target,
+            .optimize = optimize,
+        });
+
+        var ce = b.addExecutable(.{
+            .name = name,
+            .root_module = ce_mod,
+        });
+        ce.root_module.addImport("client", client_module);
+
+        ce.root_module.addImport("clap", clap_dep.module("clap"));
+
+        b.installArtifact(ce);
+    }
+
+    // Authenticator Examples
+    // ++++++++++++++++++++++++++++++++++++++++++++++++
 
     const authenticator_example_mod = b.createModule(.{
         .root_source_file = b.path("example/authenticator.zig"),

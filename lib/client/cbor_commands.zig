@@ -94,7 +94,7 @@ pub const Promise = struct {
 };
 
 // ///////////////////////////////////////
-// Get Info
+// Get Info (0x04)
 // ///////////////////////////////////////
 
 /// Information about a FIDO authenticator including:
@@ -108,6 +108,128 @@ pub fn authenticatorGetInfo(t: *Transport) !Promise {
     const cmd = "\x04";
     try t.write(cmd);
     return Promise.new(t, 500);
+}
+
+// ///////////////////////////////////////
+// Reset (0x07)
+// ///////////////////////////////////////
+
+pub fn authenticatorReset(t: *Transport, tout: i64) !Promise {
+    const cmd = "\x07";
+    try t.write(cmd);
+    return Promise.new(t, tout);
+}
+
+// ///////////////////////////////////////
+// Authenticator Selection (0x0b)
+// ///////////////////////////////////////
+
+/// Make a authenticatorSelection request.
+pub fn authenticatorSelection(t: *Transport, timeout: i64) !Promise {
+    const cmd = "\x0b";
+    try t.write(cmd);
+    return Promise.new(t, timeout);
+}
+
+// ///////////////////////////////////////
+// pinUvAuthToken
+// ///////////////////////////////////////
+
+/// Obtain a pinUvAuthToken
+///
+/// On success, returns the tuple: `(PinProtocol, token)`
+pub fn pinUvAuthToken(
+    t: *Transport,
+    allocator: std.mem.Allocator,
+    info: Info,
+    params: struct {
+        rpId: ?[]const u8 = null,
+        pin: ?[]const u8 = null,
+        permissions: client_pin.Permissions = .{},
+    },
+) !struct { keylib.ctap.pinuv.common.PinProtocol, []const u8 } {
+    var token: ?[]const u8 = null;
+
+    if (info.pinUvAuthProtocols == null or info.pinUvAuthProtocols.?.len == 0) {
+        return error.PinUvAuthProtocolNotSupportedByAuthenticator;
+    }
+
+    // Obtain a shared secret
+    const pinUvAuthProtocol = info.pinUvAuthProtocols.?[0];
+    var shared_secret = try client_pin.getKeyAgreement(
+        t,
+        pinUvAuthProtocol,
+        allocator,
+    );
+
+    // Obtain pinUvAuthToken
+    // see: https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#gettingPinUvAuthToken
+
+    //TODO: Maybe add a fallback later on, e.g. try to use a pin if using build in
+    // uv fails...
+
+    // The uv option ID is present and set to true
+    if (info.options.uv != null and info.options.uv.?) {
+        // pinUvAuthToken option ID present and true
+        if (info.options.pinUvAuthToken != null and info.options.pinUvAuthToken.?) {
+            if (params.permissions.acfg == 1) {
+                if (info.options.uvAcfg == null or !info.options.uvAcfg.?) {
+                    // When requesting the acfg permission,
+                    // getPinUvAuthTokenUsingUvWithPermissions can only be used
+                    // if the uvAcfg Option ID is present and true.
+                    return error.PinUvAuthTokenUvAcfgOptionMissingOrFalse;
+                }
+            }
+
+            token = try client_pin.getPinUvAuthTokenUsingUvWithPermissions(
+                t,
+                &shared_secret,
+                params.permissions,
+                params.rpId,
+                allocator,
+            );
+        } else { // pinUvAuthToken option ID false or absent
+            return error.PinUvAuthTokenOptionNotSupported;
+        }
+    } else if (info.options.clientPin != null and info.options.clientPin.?) {
+        if (params.pin == null) return error.PinUvAuthTokenPinMissing;
+
+        // pinUvAuthToken option ID present and true
+        if (info.options.pinUvAuthToken != null and info.options.pinUvAuthToken.?) {
+            if (params.permissions.mc == 1 or params.permissions.ga == 1) {
+                // When requesting the mc or ga permissions,
+                // getPinUvAuthTokenUsingPinWithPermissions can only be used if the
+                // noMcGaPermissionsWithClientPin Option ID is absent or set to false.
+                if (info.options.noMcGaPermissionsWithClientPin) {
+                    return error.PinUvAuthTokenMcGaWithPinNotAllowed;
+                }
+            }
+
+            token = try client_pin.getPinUvAuthTokenUsingPinWithPermissions(
+                t,
+                &shared_secret,
+                params.permissions,
+                params.rpId,
+                params.pin.?, // we have already checked that the pin is present
+                allocator,
+            );
+        } else { // the pinUvAuthToken option ID is absent
+            token = try client_pin.getPinToken(
+                t,
+                &shared_secret,
+                params.pin.?, // we have already checked that pin is present
+                allocator,
+            );
+        }
+    } else {
+        return error.PinUvAuthTokenOptionNotSupported;
+    }
+
+    if (token) |tok| {
+        return .{ pinUvAuthProtocol, tok };
+    } else {
+        return error.PinUvAuthTokenCreationFailed;
+    }
 }
 
 // ///////////////////////////////////////
@@ -176,35 +298,32 @@ pub const credentials = struct {
         param: ?[]const u8 = null,
     };
 
-    pub fn create(
-        t: *Transport,
+    /// Create a client data hash
+    ///
+    /// ## Arguments
+    ///
+    /// - `typ`: "webauthn.create" / "webauthn.get"
+    /// - `challenge`: a challenge (nonce)
+    /// - `origin`: an origin (e.g. localhost)
+    /// - `corssOrigin`
+    pub fn clientDataHash(
+        a: std.mem.Allocator,
+        typ: []const u8,
+        challenge: []const u8,
         origin: []const u8,
         crossOrigin: bool,
-        public_key: PublicKey,
-        options: Options,
-        a: std.mem.Allocator,
-    ) !void {
-        if (public_key.rp == null) {
-            return error.RpMissing;
-        }
-        if (public_key.user == null) {
-            return error.UserMissing;
-        }
-        if (public_key.pubKeyCredParams == null) {
-            return error.PubKeyCredParamsMissing;
-        }
-
+    ) ![Sha256.digest_length]u8 {
         // The challenge is base64 encoded before being integrated into the client data
         const Base64 = std.base64.url_safe.Encoder;
-        const challenge = try a.alloc(u8, Base64.calcSize(public_key.challenge.len));
-        defer a.free(challenge);
-        _ = Base64.encode(challenge, public_key.challenge);
+        const c = try a.alloc(u8, Base64.calcSize(challenge.len));
+        defer a.free(c);
+        _ = Base64.encode(c, challenge);
 
         // Serialize the client data and then hash them...
         const client_data = try serialize(
             a,
-            "webauthn.create",
-            challenge,
+            typ,
+            c,
             origin,
             crossOrigin,
         );
@@ -212,112 +331,197 @@ pub const credentials = struct {
         var client_data_hash: [Sha256.digest_length]u8 = undefined;
         Sha256.hash(client_data, client_data_hash[0..], .{});
 
-        // TODO: compare origin to public_key.rp.id ???
-
-        const param: ?[]const u8 = if (options.param != null and options.protocol != null) blk: {
-            const param = switch (options.protocol.?) {
-                .V1 => try PinUvAuth.authenticate_v1(options.param.?, &client_data_hash, a),
-                .V2 => try PinUvAuth.authenticate_v2(options.param.?, &client_data_hash, a),
-            };
-            break :blk param;
-        } else blk: {
-            break :blk null;
-        };
-        defer {
-            if (param) |p| {
-                a.free(p);
-            }
-        }
-
-        const cmd = 0x01;
-        const request = keylib.ctap.request.MakeCredential{
-            .clientDataHash = client_data_hash,
-            .rp = public_key.rp.?,
-            .user = public_key.user.?,
-            .pubKeyCredParams = public_key.pubKeyCredParams.?,
-            .excludeList = public_key.excludeCredentials,
-            // TODO: extensions
-            // TODO: options
-            .pinUvAuthParam = param,
-            .pinUvAuthProtocol = options.protocol,
-        };
-        defer a.free(request.rpId);
-
-        var arr = std.Io.Writer.Allocating.init(a);
-        defer arr.deinit();
-
-        try arr.writer.writeByte(cmd);
-        try cbor.stringify(request, .{}, &arr.writer);
-
-        std.log.info("{x}", .{arr.written()});
-
-        try t.write(arr.written());
-
-        return Promise.new(t, public_key.timeout);
+        return client_data_hash;
     }
 
-    pub fn get(
+    pub const MakeCredentialResponse = keylib.ctap.response.MakeCredential;
+    pub const GetAssertionResponse = keylib.ctap.response.GetAssertion;
+
+    /// Create a new credential using the authenticatorMakeCredential command.
+    ///
+    /// This function enforces user verification, either using builtin uv
+    /// or a pin. Creating a credential without user verification is not
+    /// supported.
+    pub fn create(
         t: *Transport,
-        origin: []const u8,
-        crossOrigin: bool,
-        public_key: PublicKey,
-        options: Options,
-        a: std.mem.Allocator,
+        token: []const u8,
+        pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
+        allocator: std.mem.Allocator,
+        params: struct {
+            rpId: []const u8,
+            userId: []const u8,
+            challenge: []const u8,
+            rpName: ?[]const u8 = null,
+            crossOrigin: bool = false,
+            userName: ?[]const u8 = null,
+            userDisplayName: ?[]const u8 = null,
+            rk: ?bool = null,
+            uv: bool = false,
+            hms: bool = false,
+            type: keylib.common.PublicKeyCredentialParameters = .{
+                .alg = .Es256,
+                .type = .@"public-key",
+            },
+            timeout: i64 = 30000,
+        },
     ) !Promise {
-        if (public_key.rpId == null) {
-            return error.RpIdMissing;
-        }
+        // ===========================
+        // Create client data hash
+        // ===========================
 
-        // TODO: compare origin to public_key.rp.id ???
-
-        // The challenge is base64 encoded before being integrated into the client data
-        const Base64 = std.base64.url_safe.Encoder;
-        const challenge = try a.alloc(u8, Base64.calcSize(public_key.challenge.len));
-        defer a.free(challenge);
-        _ = Base64.encode(challenge, public_key.challenge);
-
-        // Serialize the client data and then hash them...
-        const client_data = try serialize(
-            a,
-            "webauthn.get",
-            challenge,
-            origin,
-            crossOrigin,
+        const client_data_hash = try credentials.clientDataHash(
+            allocator,
+            "webauthn.create",
+            params.challenge,
+            params.rpId,
+            params.crossOrigin,
         );
-        defer a.free(client_data);
-        var client_data_hash: [Sha256.digest_length]u8 = undefined;
-        Sha256.hash(client_data, client_data_hash[0..], .{});
 
-        const param: ?keylib.common.dt.ABS32B = if (options.param != null and options.protocol != null) blk: {
-            const param = switch (options.protocol.?) {
-                .V1 => PinUvAuth.authenticate_v1(options.param.?, &client_data_hash),
-                .V2 => PinUvAuth.authenticate_v2(options.param.?, &client_data_hash),
-            };
-            break :blk param;
-        } else blk: {
-            break :blk null;
-        };
+        // ===========================
+        // Prepare data
+        // ===========================
 
-        const cmd = 0x02;
-        const request = keylib.ctap.request.GetAssertion{
-            .rpId = (try keylib.common.dt.ABS128T.fromSlice(public_key.rpId.?)).?,
+        const rp = try keylib.common.RelyingParty.new(
+            params.rpId,
+            params.rpName,
+        );
+
+        const user = try keylib.common.User.new(
+            params.userId,
+            params.userName,
+            params.userDisplayName,
+        );
+
+        var mc = keylib.ctap.request.MakeCredential{
             .clientDataHash = client_data_hash,
-            .pinUvAuthParam = param,
-            .pinUvAuthProtocol = options.protocol,
-            .allowList = try keylib.common.dt.ABSPublicKeyCredentialDescriptor.fromSlice(public_key.allowCredentials),
+            .rp = rp,
+            .user = user,
+            .pubKeyCredParams = (try keylib.common.dt.ABSPublicKeyCredentialParameters.fromSlice(&.{params.type})).?,
+            .options = .{
+                .rk = params.rk,
+                .up = null,
+                .uv = null, // uv must not be set when using pinUvAuthParam
+            },
         };
 
-        var arr = std.Io.Writer.Allocating.init(a);
+        mc.pinUvAuthParam = switch (pinUvAuthProtocol) {
+            .V1 => PinUvAuth.authenticate_v1(
+                token,
+                &client_data_hash,
+            ),
+            .V2 => PinUvAuth.authenticate_v2(
+                token,
+                &client_data_hash,
+            ),
+        };
+        mc.pinUvAuthProtocol = pinUvAuthProtocol;
+
+        // ===========================
+        // Sending request
+        // ===========================
+
+        var arr = std.Io.Writer.Allocating.init(allocator);
         defer arr.deinit();
 
-        try arr.writer.writeByte(cmd);
-        try cbor.stringify(request, .{}, &arr.writer);
+        try arr.writer.writeByte(0x01);
+        try cbor.stringify(mc, .{}, &arr.writer);
 
-        std.log.info("{s}", .{arr.written()});
+        //std.debug.print("{x}\n", .{arr.written()});
 
         try t.write(arr.written());
 
-        return Promise.new(t, public_key.timeout);
+        return Promise.new(t, params.timeout);
+    }
+
+    pub fn getAssertion(
+        t: *Transport,
+        token: []const u8,
+        pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
+        allocator: std.mem.Allocator,
+        params: struct {
+            rpId: []const u8,
+            challenge: []const u8,
+            crossOrigin: bool = false,
+            hms: bool = false,
+            // TODO: add allow list
+            timeout: i64 = 30000,
+        },
+    ) !struct { Promise, [Sha256.digest_length]u8 } {
+        // ===========================
+        // Create client data hash
+        // ===========================
+
+        const client_data_hash = try credentials.clientDataHash(
+            allocator,
+            "webauthn.get",
+            params.challenge,
+            params.rpId,
+            params.crossOrigin,
+        );
+
+        // ===========================
+        // Prepare data
+        // ===========================
+
+        var ga = keylib.ctap.request.GetAssertion{
+            .rpId = (try keylib.common.dt.ABS128T.fromSlice(params.rpId)).?,
+            .clientDataHash = client_data_hash,
+            .options = .{
+                .up = null,
+                .uv = null, // uv must not be set when using pinUvAuthParam
+            },
+        };
+
+        ga.pinUvAuthParam = switch (pinUvAuthProtocol) {
+            .V1 => PinUvAuth.authenticate_v1(
+                token,
+                &client_data_hash,
+            ),
+            .V2 => PinUvAuth.authenticate_v2(
+                token,
+                &client_data_hash,
+            ),
+        };
+        ga.pinUvAuthProtocol = pinUvAuthProtocol;
+
+        // ===========================
+        // Sending request
+        // ===========================
+
+        var arr = std.Io.Writer.Allocating.init(allocator);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(0x02);
+        try cbor.stringify(ga, .{}, &arr.writer);
+
+        //std.debug.print("{x}\n", .{arr.written()});
+
+        try t.write(arr.written());
+
+        return .{ Promise.new(t, params.timeout), client_data_hash };
+    }
+
+    pub fn getNextAssertion(
+        t: *Transport,
+        allocator: std.mem.Allocator,
+        params: struct {
+            timeout: i64 = 30000,
+        },
+    ) !Promise {
+        // ===========================
+        // Sending request
+        // ===========================
+
+        var arr = std.Io.Writer.Allocating.init(allocator);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(0x08);
+
+        //std.debug.print("{x}\n", .{arr.written()});
+
+        try t.write(arr.written());
+
+        return Promise.new(t, params.timeout);
     }
 
     /// Serialize the collected client data.
@@ -347,10 +551,11 @@ pub const credentials = struct {
         return try out.toOwnedSlice();
     }
 
+    // https://www.w3.org/TR/webauthn-2/#ccdtostring
     pub fn CCDToString(out: *std.Io.Writer, in: []const u8) !void {
         var i: usize = 0;
 
-        std.log.info("{s}", .{in});
+        //std.log.info("{s}", .{in});
 
         try out.writeByte(0x22);
         while (i < in.len) : (i += 1) {
@@ -360,7 +565,7 @@ pub const credentials = struct {
             switch (cp) {
                 0x20, 0x21, 0x23...0x5b, 0x5d...0x10ffff => try out.writeAll(in[i .. i + l]),
                 0x22 => try out.writeAll(&.{ 0x5c, 0x22 }),
-                0x5c => try out.writeAll(&.{ 0x5c, 0x22 }),
+                0x5c => try out.writeAll(&.{ 0x5c, 0x5c }),
                 else => {
                     var tmp: [4]u8 = .{0} ** 4;
                     @memcpy(tmp[0..l], in[i .. i + l]);
@@ -369,6 +574,16 @@ pub const credentials = struct {
                 },
             }
         }
+        //for (in) |c| {
+        //    switch (c) { // this is not quite correct... TODO: fix this for utf8
+        //        0x20, 0x21, 0x23...0x5b, 0x5d...0x7e => try out.writeByte(c),
+        //        0x22 => try out.writeAll(&.{ 0x5c, 0x22 }),
+        //        0x5c => try out.writeAll(&.{ 0x5c, 0x5c }),
+        //        else => {
+        //            return error.you_fell_into_my_trap;
+        //        },
+        //    }
+        //}
         try out.writeByte(0x22);
     }
 };
@@ -464,6 +679,205 @@ pub const client_pin = struct {
         reserved1: u1 = 0,
         reserved2: u1 = 0,
     };
+
+    /// Set a PIN for an authenticator.
+    ///
+    /// The caller is responsible for checking if the new
+    /// PIN adheres to the minPINLength set by the authenticator.
+    pub fn setPin(
+        t: *Transport,
+        e: *Encapsulation, // shared secret
+        newPin: []const u8,
+        a: std.mem.Allocator,
+    ) !Promise {
+        // 63 bytes is the limit for pins
+        if (newPin.len > 63) return error.pin;
+
+        // Platform sends authenticatorClientPIN command to the
+        // authenticator.
+        const cmd = 0x06;
+        var request = ClientPin{
+            .pinUvAuthProtocol = e.version,
+            .subCommand = .setPIN,
+            .keyAgreement = cbor.cose.Key.fromP256Pub(
+                .EcdhEsHkdf256,
+                e.platform_key_agreement_key,
+            ),
+        };
+
+        var paddedPin: [64]u8 = .{0} ** 64;
+        @memcpy(paddedPin[0..newPin.len], newPin);
+
+        var _newPinEnc: [80]u8 = undefined;
+        switch (e.version) {
+            .V1 => {
+                // Encrypt PIN hash
+                const iv: [16]u8 = .{0} ** 16;
+
+                // Encrypt padded PIN
+                PinUvAuth._encrypt(
+                    iv,
+                    e.shared_secret.get()[0..32].*,
+                    _newPinEnc[0..64],
+                    &paddedPin,
+                );
+                request.newPinEnc = try keylib.common.dt.ABS80B.fromSlice(
+                    _newPinEnc[0..64],
+                );
+            },
+            .V2 => {
+                // Encrypt padded PIN
+                std.crypto.random.bytes(_newPinEnc[0..16]);
+                PinUvAuth._encrypt(
+                    _newPinEnc[0..16].*,
+                    e.shared_secret.get()[32..64].*,
+                    _newPinEnc[16..80],
+                    &paddedPin,
+                );
+                request.newPinEnc = try keylib.common.dt.ABS80B.fromSlice(
+                    _newPinEnc[0..80],
+                );
+            },
+        }
+
+        const param = switch (e.version) {
+            .V1 => PinUvAuth.authenticate_v1(e.shared_secret.get(), request.newPinEnc.?.get()),
+            .V2 => PinUvAuth.authenticate_v2(e.shared_secret.get(), request.newPinEnc.?.get()),
+        };
+        request.pinUvAuthParam = param;
+
+        // Serialize request
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(cmd);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        return Promise.new(t, 500);
+    }
+
+    /// Change an existing PIN for an authenticator.
+    ///
+    /// The caller is responsible for checking if the new
+    /// PIN adheres to the minPINLength set by the authenticator.
+    pub fn changePin(
+        t: *Transport,
+        e: *Encapsulation, // shared secret
+        curPin: []const u8,
+        newPin: []const u8,
+        a: std.mem.Allocator,
+    ) !Promise {
+        // 63 bytes is the limit for pins
+        if (curPin.len > 63) return error.pin;
+        if (newPin.len > 63) return error.pin;
+
+        // Platform sends authenticatorClientPIN command to the
+        // authenticator.
+        const cmd = 0x06;
+        var request = ClientPin{
+            .pinUvAuthProtocol = e.version,
+            .subCommand = .changePIN,
+            .keyAgreement = cbor.cose.Key.fromP256Pub(
+                .EcdhEsHkdf256,
+                e.platform_key_agreement_key,
+            ),
+        };
+
+        // Calculate: pinHashEnc: The result of calling
+        //            encrypt(shared secret, LEFT(SHA-256(curPin), 16))
+        var pin_hash: [Sha256.digest_length]u8 = undefined;
+        Sha256.hash(curPin, &pin_hash, .{});
+        // Who the fuck would just use half of an hash!?!
+        const pin_hash_left = pin_hash[0..16];
+
+        var paddedPin: [64]u8 = .{0} ** 64;
+        @memcpy(paddedPin[0..newPin.len], newPin);
+
+        var @"newPinEnc || pinHashEnc": std.ArrayListUnmanaged(u8) = .empty;
+        defer {
+            std.crypto.secureZero(u8, @"newPinEnc || pinHashEnc".items);
+            @"newPinEnc || pinHashEnc".deinit(a);
+        }
+
+        var _pinHashEnc: [32]u8 = undefined;
+        var _newPinEnc: [80]u8 = undefined;
+        switch (e.version) {
+            .V1 => {
+                // Encrypt PIN hash
+                const iv: [16]u8 = .{0} ** 16;
+                PinUvAuth._encrypt(
+                    iv,
+                    e.shared_secret.get()[0..32].*,
+                    _pinHashEnc[0..16],
+                    pin_hash_left,
+                );
+                request.pinHashEnc = try keylib.common.dt.ABS32B.fromSlice(
+                    _pinHashEnc[0..16],
+                );
+
+                // Encrypt padded PIN
+                PinUvAuth._encrypt(
+                    iv,
+                    e.shared_secret.get()[0..32].*,
+                    _newPinEnc[0..64],
+                    &paddedPin,
+                );
+                request.newPinEnc = try keylib.common.dt.ABS80B.fromSlice(
+                    _newPinEnc[0..64],
+                );
+
+                try @"newPinEnc || pinHashEnc".appendSlice(a, _newPinEnc[0..64]);
+                try @"newPinEnc || pinHashEnc".appendSlice(a, _pinHashEnc[0..16]);
+            },
+            .V2 => {
+                // Encrypt PIN hash
+                std.crypto.random.bytes(_pinHashEnc[0..16]);
+                PinUvAuth._encrypt(
+                    _pinHashEnc[0..16].*,
+                    e.shared_secret.get()[32..64].*,
+                    _pinHashEnc[16..32],
+                    pin_hash_left,
+                );
+                request.pinHashEnc = try keylib.common.dt.ABS32B.fromSlice(
+                    _pinHashEnc[0..32],
+                );
+
+                // Encrypt padded PIN
+                std.crypto.random.bytes(_newPinEnc[0..16]);
+                PinUvAuth._encrypt(
+                    _newPinEnc[0..16].*,
+                    e.shared_secret.get()[32..64].*,
+                    _newPinEnc[16..80],
+                    &paddedPin,
+                );
+                request.newPinEnc = try keylib.common.dt.ABS80B.fromSlice(
+                    _newPinEnc[0..80],
+                );
+
+                try @"newPinEnc || pinHashEnc".appendSlice(a, _newPinEnc[0..80]);
+                try @"newPinEnc || pinHashEnc".appendSlice(a, _pinHashEnc[0..32]);
+            },
+        }
+
+        const param = switch (e.version) {
+            .V1 => PinUvAuth.authenticate_v1(e.shared_secret.get(), @"newPinEnc || pinHashEnc".items),
+            .V2 => PinUvAuth.authenticate_v2(e.shared_secret.get(), @"newPinEnc || pinHashEnc".items),
+        };
+        request.pinUvAuthParam = param;
+
+        // Serialize request
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(cmd);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        return Promise.new(t, 500);
+    }
 
     pub fn getPinToken(
         t: *Transport,
@@ -567,7 +981,7 @@ pub const client_pin = struct {
         };
 
         if (rpId) |id| {
-            request.rpId = id;
+            request.rpId = try .fromSlice(id);
         }
 
         var pin_hash: [Sha256.digest_length]u8 = undefined;
@@ -581,7 +995,7 @@ pub const client_pin = struct {
                 const iv: [16]u8 = .{0} ** 16;
                 PinUvAuth._encrypt(
                     iv,
-                    e.shared_secret[0..32].*,
+                    e.shared_secret.get()[0..32].*,
                     _pinHashEnc[0..16],
                     pin_hash_left,
                 );
@@ -591,14 +1005,14 @@ pub const client_pin = struct {
                 std.crypto.random.bytes(_pinHashEnc[0..16]);
                 PinUvAuth._encrypt(
                     _pinHashEnc[0..16].*,
-                    e.shared_secret[32..64].*,
+                    e.shared_secret.get()[32..64].*,
                     _pinHashEnc[16..32],
                     pin_hash_left,
                 );
                 pinHashEnc = _pinHashEnc[0..32];
             },
         }
-        request.pinHashEnc = pinHashEnc;
+        request.pinHashEnc = try .fromSlice(pinHashEnc);
 
         var arr = std.Io.Writer.Allocating.init(a);
         defer arr.deinit();
@@ -615,8 +1029,7 @@ pub const client_pin = struct {
                 return err.errorFromInt(response[0]);
             }
 
-            var cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{ .allocator = a });
-            defer cpr.deinit(a);
+            const cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{});
 
             if (cpr.pinUvAuthToken == null) return error.MissingPar;
 
@@ -624,11 +1037,11 @@ pub const client_pin = struct {
             switch (e.version) {
                 .V1 => {
                     token = try a.alloc(u8, cpr.pinUvAuthToken.?.len);
-                    PinUvAuth.decrypt_v1(e.shared_secret, token, cpr.pinUvAuthToken.?);
+                    PinUvAuth.decrypt_v1(e.shared_secret.get(), token, cpr.pinUvAuthToken.?.get());
                 },
                 .V2 => {
                     token = try a.alloc(u8, cpr.pinUvAuthToken.?.len - 16);
-                    PinUvAuth.decrypt_v2(e.shared_secret, token, cpr.pinUvAuthToken.?);
+                    PinUvAuth.decrypt_v2(e.shared_secret.get(), token, cpr.pinUvAuthToken.?.get());
                 },
             }
             return token;
@@ -656,7 +1069,7 @@ pub const client_pin = struct {
         };
 
         if (rpId) |id| {
-            request.rpId = id;
+            request.rpId = try .fromSlice(id);
         }
 
         var arr = std.Io.Writer.Allocating.init(a);
@@ -674,8 +1087,7 @@ pub const client_pin = struct {
                 return err.errorFromInt(response[0]);
             }
 
-            var cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{ .allocator = a });
-            defer cpr.deinit(a);
+            var cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{});
 
             if (cpr.pinUvAuthToken == null) return error.MissingPar;
 
@@ -683,11 +1095,11 @@ pub const client_pin = struct {
             switch (e.version) {
                 .V1 => {
                     token = try a.alloc(u8, cpr.pinUvAuthToken.?.len);
-                    PinUvAuth.decrypt_v1(e.shared_secret, token, cpr.pinUvAuthToken.?);
+                    PinUvAuth.decrypt_v1(e.shared_secret.get(), token, cpr.pinUvAuthToken.?.get());
                 },
                 .V2 => {
                     token = try a.alloc(u8, cpr.pinUvAuthToken.?.len - 16);
-                    PinUvAuth.decrypt_v2(e.shared_secret, token, cpr.pinUvAuthToken.?);
+                    PinUvAuth.decrypt_v2(e.shared_secret.get(), token, cpr.pinUvAuthToken.?.get());
                 },
             }
             return token;
@@ -705,29 +1117,90 @@ pub const CredentialManagement = keylib.ctap.request.CredentialManagement;
 pub const CredentialManagementResponse = keylib.ctap.response.CredentialManagement;
 
 pub const cred_management = struct {
-    pub const RpResponse = struct {
+    pub const RelyingParty = struct {
         rp: keylib.common.RelyingParty,
-        //rpIDHash: []const u8,
+        rpIDHash: [32]u8,
         total: ?u32 = null,
-        a: std.mem.Allocator,
     };
+
+    pub const UserData = struct {
+        user: keylib.common.User,
+        credentialID: keylib.common.PublicKeyCredentialDescriptor,
+        publicKey: cbor.cose.Key,
+        credProtect: keylib.ctap.extensions.CredentialCreationPolicy,
+        totalCredentials: ?u32 = null,
+    };
+
+    pub const Metadata = struct {
+        existingResidentCredentialsCount: u32,
+        maxPossibleRemainingResidentCredentialsCount: u32,
+    };
+
+    /// Get credential metadata information.
+    ///
+    // The authenticator MUST support `authenticatorCredentialManagement´.
+    pub fn getCredsMetadata(
+        t: *Transport,
+        token: []const u8,
+        pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
+        is_yubikey: bool,
+        a: std.mem.Allocator,
+    ) !Metadata {
+        const param = switch (pinUvAuthProtocol) {
+            .V1 => PinUvAuth.authenticate_v1(token, "\x01"),
+            .V2 => PinUvAuth.authenticate_v2(token, "\x01"),
+        };
+
+        const request = CredentialManagement{
+            .subCommand = .getCredsMetadata,
+            .pinUvAuthProtocol = pinUvAuthProtocol,
+            .pinUvAuthParam = param.get(),
+        };
+
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(if (is_yubikey) 0x41 else 0x0a);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        if (try t.read(a)) |response| {
+            defer a.free(response);
+
+            var r = try cbor.parse(
+                CredentialManagementResponse,
+                try cbor.DataItem.new(response[1..]),
+                .{ .allocator = a },
+            );
+            defer r.deinit(a);
+
+            if (r.existingResidentCredentialsCount == null) return error.MissingPar;
+            if (r.maxPossibleRemainingResidentCredentialsCount == null) return error.MissingPar;
+
+            return .{
+                .existingResidentCredentialsCount = r.existingResidentCredentialsCount.?,
+                .maxPossibleRemainingResidentCredentialsCount = r.maxPossibleRemainingResidentCredentialsCount.?,
+            };
+        } else return error.MissingResponse;
+    }
 
     pub fn enumerateRPsBegin(
         t: *Transport,
+        token: []const u8,
         protocol: keylib.ctap.pinuv.common.PinProtocol,
-        param: []const u8,
-        a: std.mem.Allocator,
         is_yubikey: bool,
-    ) !?RpResponse {
-        const _param = switch (protocol) {
-            .V1 => PinUvAuth.authenticate_v1(param, "\x02"),
-            .V2 => PinUvAuth.authenticate_v2(param, "\x02"),
+        a: std.mem.Allocator,
+    ) !?RelyingParty {
+        const param = switch (protocol) {
+            .V1 => PinUvAuth.authenticate_v1(token, "\x02"),
+            .V2 => PinUvAuth.authenticate_v2(token, "\x02"),
         };
 
         const request = CredentialManagement{
             .subCommand = .enumerateRPsBegin,
             .pinUvAuthProtocol = protocol,
-            .pinUvAuthParam = _param.get(),
+            .pinUvAuthParam = param.get(),
         };
 
         var arr = std.Io.Writer.Allocating.init(a);
@@ -762,9 +1235,8 @@ pub const cred_management = struct {
                     .id = r.rp.?.id,
                     .name = r.rp.?.name,
                 },
-                //.rpIDHash = try a.dupe(u8, r.rpIDHash.?),
+                .rpIDHash = r.rpIDHash.?,
                 .total = r.totalRPs.?,
-                .a = a,
             };
         } else {
             return error.MissingResponse;
@@ -773,9 +1245,9 @@ pub const cred_management = struct {
 
     pub fn enumerateRPsGetNextRP(
         t: *Transport,
-        a: std.mem.Allocator,
         is_yubikey: bool,
-    ) !?RpResponse {
+        a: std.mem.Allocator,
+    ) !?RelyingParty {
         const request = CredentialManagement{
             .subCommand = .enumerateRPsGetNextRP,
         };
@@ -811,9 +1283,181 @@ pub const cred_management = struct {
                     .id = r.rp.?.id,
                     .name = r.rp.?.name,
                 },
-                //.rpIDHash = try a.dupe(u8, r.rpIDHash.?),
-                .a = a,
+                .rpIDHash = r.rpIDHash.?,
             };
+        } else {
+            return error.MissingResponse;
+        }
+    }
+
+    pub fn enumerateCredentialsBegin(
+        t: *Transport,
+        token: []const u8,
+        protocol: keylib.ctap.pinuv.common.PinProtocol,
+        rpIDHash: [32]u8,
+        is_yubikey: bool,
+        a: std.mem.Allocator,
+    ) !?UserData {
+        var request = CredentialManagement{
+            .subCommand = .enumerateCredentialsBegin,
+            .subCommandParams = .{
+                .rpIDHash = rpIDHash,
+            },
+        };
+
+        // Create Param
+
+        var scp = std.Io.Writer.Allocating.init(a);
+        defer scp.deinit();
+        try scp.writer.writeByte(0x04);
+        try cbor.stringify(request.subCommandParams.?, .{}, &scp.writer);
+        //std.debug.print("{x}\n", .{scp.written()});
+        const param = switch (protocol) {
+            .V1 => PinUvAuth.authenticate_v1(token, scp.written()),
+            .V2 => PinUvAuth.authenticate_v2(token, scp.written()),
+        };
+        request.pinUvAuthProtocol = protocol;
+        request.pinUvAuthParam = param.get();
+
+        // Send request
+
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(if (is_yubikey) 0x41 else 0x0a);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        if (try t.read(a)) |response| {
+            defer a.free(response);
+
+            if (response[0] == 0x2e) {
+                // no credentials
+                return null;
+            }
+
+            if (response[0] != 0) {
+                return err.errorFromInt(response[0]);
+            }
+
+            var r = try cbor.parse(CredentialManagementResponse, try cbor.DataItem.new(response[1..]), .{ .allocator = a });
+            defer r.deinit(a);
+
+            if (r.user == null) return error.MissingPar;
+            if (r.credentialID == null) return error.MissingPar;
+            if (r.publicKey == null) return error.MissingPar;
+            if (r.totalCredentials == null) return error.MissingPar;
+            if (r.credProtect == null) return error.MissingPar;
+
+            return .{
+                .user = r.user.?,
+                .credentialID = r.credentialID.?,
+                .publicKey = r.publicKey.?,
+                .totalCredentials = r.totalCredentials.?,
+                .credProtect = r.credProtect.?,
+            };
+        } else {
+            return error.MissingResponse;
+        }
+    }
+
+    pub fn enumerateCredentialsGetNextCredential(
+        t: *Transport,
+        is_yubikey: bool,
+        a: std.mem.Allocator,
+    ) !?UserData {
+        const request = CredentialManagement{
+            .subCommand = .enumerateCredentialsGetNextCredential,
+        };
+
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(if (is_yubikey) 0x41 else 0x0a);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        if (try t.read(a)) |response| {
+            defer a.free(response);
+
+            if (response[0] == 0x2e) {
+                // no credentials
+                return null;
+            }
+
+            if (response[0] != 0) {
+                return err.errorFromInt(response[0]);
+            }
+
+            var r = try cbor.parse(CredentialManagementResponse, try cbor.DataItem.new(response[1..]), .{ .allocator = a });
+            defer r.deinit(a);
+
+            if (r.user == null) return error.MissingPar;
+            if (r.credentialID == null) return error.MissingPar;
+            if (r.publicKey == null) return error.MissingPar;
+            if (r.credProtect == null) return error.MissingPar;
+
+            return .{
+                .user = r.user.?,
+                .credentialID = r.credentialID.?,
+                .publicKey = r.publicKey.?,
+                .credProtect = r.credProtect.?,
+            };
+        } else {
+            return error.MissingResponse;
+        }
+    }
+
+    pub fn deleteCredential(
+        t: *Transport,
+        token: []const u8,
+        protocol: keylib.ctap.pinuv.common.PinProtocol,
+        credentialId: []const u8,
+        is_yubikey: bool,
+        a: std.mem.Allocator,
+    ) !void {
+        var request = CredentialManagement{
+            .subCommand = .deleteCredential,
+            .subCommandParams = .{
+                .credentialID = .{
+                    .id = (try keylib.common.dt.ABS64B.fromSlice(credentialId)).?,
+                    .type = .@"public-key",
+                },
+            },
+        };
+
+        // Create Param
+
+        var scp = std.Io.Writer.Allocating.init(a);
+        defer scp.deinit();
+        try scp.writer.writeByte(0x06);
+        try cbor.stringify(request.subCommandParams.?, .{}, &scp.writer);
+        //std.debug.print("{x}\n", .{scp.written()});
+        const param = switch (protocol) {
+            .V1 => PinUvAuth.authenticate_v1(token, scp.written()),
+            .V2 => PinUvAuth.authenticate_v2(token, scp.written()),
+        };
+        request.pinUvAuthProtocol = protocol;
+        request.pinUvAuthParam = param.get();
+
+        // Send request
+
+        var arr = std.Io.Writer.Allocating.init(a);
+        defer arr.deinit();
+
+        try arr.writer.writeByte(if (is_yubikey) 0x41 else 0x0a);
+        try cbor.stringify(request, .{}, &arr.writer);
+
+        try t.write(arr.written());
+
+        if (try t.read(a)) |response| {
+            defer a.free(response);
+
+            if (response[0] != 0) {
+                return err.errorFromInt(response[0]);
+            }
         } else {
             return error.MissingResponse;
         }

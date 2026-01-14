@@ -289,8 +289,31 @@ pub fn authenticatorGetAssertion(
     }
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++
-    // 11. Process extensions
+    // 10. Process extensions
     // ++++++++++++++++++++++++++++++++++++++++++++++++
+
+    var @"hmac-secret": ?fido.common.dt.ABS64B = null;
+    if (gap.extensions) |extensions| {
+        if (extensions.@"hmac-secret") |hms| {
+            switch (hms) {
+                .get => |hmsget| {
+                    var stat: fido.ctap.StatusCodes = .ctap1_err_success;
+
+                    @"hmac-secret" = hmsget.generate(
+                        &stat,
+                        auth,
+                        &selected_credential.?,
+                        uv_response,
+                    );
+
+                    if (stat != .ctap1_err_success) {
+                        return stat;
+                    }
+                },
+                else => {},
+            }
+        }
+    }
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     // 11. + 12. Finally select credential
@@ -329,6 +352,13 @@ pub fn authenticatorGetAssertion(
         },
         .signCount = @intCast(usageCnt),
     };
+
+    if (@"hmac-secret") |hms| {
+        auth_data.extensions = .{
+            .@"hmac-secret" = .{ .output = hms },
+        };
+    }
+
     std.crypto.hash.sha2.Sha256.hash( // calculate rpId hash
         gap.rpId.get(),
         &auth_data.rpIdHash,

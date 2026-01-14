@@ -81,6 +81,55 @@ pub fn cborStringify(self: *const @This(), _: cbor.Options, out: *std.Io.Writer)
     );
 }
 
+pub fn cborParse(item: cbor.DataItem, options: cbor.Options) !@This() {
+    if (item.getType() != .Map) return error.UnsupportedType;
+
+    var map = item.map().?;
+
+    // fmt
+    var kv = map.next();
+    if (kv == null) return error.MissingField;
+
+    var key = kv.?.key.int();
+    if (key == null or key.? != 1) return error.UnexpectedItemValue;
+    const fmt = try cbor.parse(
+        fido.common.AttestationStatementFormatIdentifiers,
+        kv.?.value,
+        options,
+    );
+
+    // authData
+    kv = map.next();
+    if (kv == null) return error.MissingField;
+
+    key = kv.?.key.int();
+    if (key == null or key.? != 2) return error.UnexpectedItemValue;
+    const value = kv.?.value.string();
+    if (value == null) return error.UnexpectedItemValue;
+    var reader = std.Io.Reader.fixed(value.?);
+    const authData = AuthenticatorData.decode(&reader) catch return error.Malformed;
+
+    // attStmt
+    kv = map.next();
+    if (kv == null) return error.MissingField;
+
+    key = kv.?.key.int();
+    if (key == null or key.? != 3) return error.UnexpectedItemValue;
+    const attStmt = try cbor.parse(
+        fido.common.AttestationStatement,
+        kv.?.value,
+        options,
+    );
+
+    return .{
+        .fmt = fmt,
+        .authData = authData,
+        .attStmt = attStmt,
+        // TODO: eppAtt -> 4
+        // TODO: largeBlobKey -> 5
+    };
+}
+
 test "attestationObject encoding - no attestation" {
     const allocator = std.testing.allocator;
     //var authData = std.ArrayList(u8).init(allocator);

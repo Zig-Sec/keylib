@@ -50,7 +50,7 @@ version: fido.ctap.pinuv.common.PinProtocol,
 /// Key derivation function to be used by ECDH
 kdf: *const fn (z: [32]u8) dt.ABS64B,
 encrypt: *const fn (self: *const @This(), key: []const u8, out: []u8, demPlaintext: []const u8) void,
-decrypt: *const fn (key: []u8, out: []u8, demCiphertext: []const u8) void,
+decrypt: *const fn (key: []const u8, out: []u8, demCiphertext: []const u8) void,
 authenticate: *const fn (key: []u8, message: []const u8) dt.ABS32B,
 verify: *const fn (key: []const u8, message: []const u8, signature: []const u8) bool,
 
@@ -232,6 +232,7 @@ pub fn getUserPresentFlagValue(self: *const @This()) bool {
     return self.in_use and self.user_present;
 }
 
+// decapsulate
 pub fn ecdh(
     self: *const @This(),
     peer_cose_key: cose.Key,

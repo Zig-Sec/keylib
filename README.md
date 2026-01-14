@@ -2,9 +2,17 @@
 
 <a href="https://liberapay.com/r4gus/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a>
 
-FIDO2 compatible authenticator and client library written in [Zig](https://ziglang.org/). The authenticator part requires __zero dynamic allocations__.
+FIDO2 compatible *authenticator* and *client* library written in [Zig](https://ziglang.org/). The authenticator framework requires __zero dynamic allocations__.
 
-If you want to see an example on how the library could be used, check out [PassKeeZ](https://github.com/r4gus/keypass).
+This package can serve two purposes:
+
+1. Create FIDO2/ Passkey compatible authenticators:
+    - One example is [PassKeeZ](https://codeberg.org/r4gus/PassKeeZ)
+    - but you can also use the library on embedded devices, e.g. to create your own security key (similar to YubiKey, SoloKey, ...)
+2. Add FIDO2/ Passkey support to your application using the client module.
+    - We provide a variety of examples [here](example/client/README.md)
+
+> The CTAP2 specification offers a lot of configurations for authenticators. If you're looking for a specific example and can't find it here or run into a bug, consider opening an issue. I'm open to add new features as long as you're also willing to contribute (in some form) to the project.
 
 | Zig version | keylib version |
 |:-----------:|:--------------:|
@@ -47,6 +55,10 @@ exe.root_module.addImport("keylib", keylib_module);
 ```
 
 Then within your project just use `@import("keylib")` (or one of the other modules).
+
+## Authenticator Framework Design
+
+![keylib design](static/design.png)
 
 ## QA
 
@@ -158,21 +170,11 @@ The authenticator example uses `88655` bytes of stack space when compiled with `
 
 </details>
 
-## Design
-
-![keylib design](static/design.png)
-
-## Getting Started
-
-We maintain two examples on how to use the library:
-
-* `authenticator` - [https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig](https://codeberg.org/r4gus/keylib/src/branch/master/example/authenticator.zig)
-    * **Please read the description at the top of the source code for instructions on how to setup uhid correctly**
-* `client` - [https://codeberg.org/r4gus/keylib/src/branch/master/example/client.zig](https://codeberg.org/r4gus/keylib/src/branch/master/example/client.zig)
-
 ## Resources
 
-- [CTAP2](https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-errata-20220621.html#intro) - FIDO Alliance
+- [CTAP2.0](https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html) - FIDO Alliance
+- [CTAP2.1](https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-errata-20220621.html#intro) - FIDO Alliance
+- [CTAP2.2](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#intro) - FIDO Alliance
 - [WebAuthn](https://www.w3.org/TR/webauthn-3/) - W3C
 - [CBOR RFC8949](https://www.rfc-editor.org/rfc/rfc8949.html) - C. Bormann and P. Hoffman
 

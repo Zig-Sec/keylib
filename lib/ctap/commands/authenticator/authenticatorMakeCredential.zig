@@ -340,7 +340,7 @@ pub fn authenticatorMakeCredential(
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     var extensions = fido.ctap.extensions.Extensions{};
 
-    // Policy
+    // Credential Creation Policy
     var policy = fido.ctap.extensions.CredentialCreationPolicy.userVerificationOptional;
 
     if (mcp.extensions) |ext| {
@@ -351,20 +351,34 @@ pub fn authenticatorMakeCredential(
     // We will always set a policy
     extensions.credProtect = policy;
 
+    // HMAC Secret Extension
+    var new_hms: ?struct { [32]u8, [32]u8 } = null;
+    if (mcp.extensions) |ext| blk: {
+        if (ext.@"hmac-secret") |hms| {
+            switch (hms) {
+                .create => |create_hms| {
+                    if (create_hms) { // Platform request creation of an HMAC secret
+                        // Create two random 32-byte values using CSPRNG
+                        var k1: [32]u8 = undefined;
+                        var k2: [32]u8 = undefined;
+
+                        auth.random.bytes(&k1);
+                        auth.random.bytes(&k2);
+
+                        new_hms = .{ k1, k2 };
+
+                        // Also set `"hmac-secret": true` in the response.
+                        extensions.@"hmac-secret" = .{ .create = true };
+                    }
+                },
+                else => break :blk, // This shouldn't be used during creation
+            }
+        }
+    }
+
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     // 16. Create a new credential
     // ++++++++++++++++++++++++++++++++++++++++++++++++
-    //var id: [32]u8 = undefined;
-    //auth.random.bytes(&id);
-    //for (&id) |*b| {
-    //    // disallow 0 bytes
-    //    // -> The callbacks work with C strings and we don't pass a length, i.e.
-    //    //    0 terminates a string. If we would allow 0 bytes then the id would
-    //    //    get cut off.
-    //    while (b.* == 0) {
-    //        b.* = auth.random.int(u8);
-    //    }
-    //}
     const id = uuid.v7.new2(auth.random, auth.milliTimestamp);
     const urn = uuid.urn.serialize(id);
 
@@ -384,6 +398,12 @@ pub fn authenticatorMakeCredential(
         .created = auth.milliTimestamp(),
     };
     entry.policy = policy;
+
+    // If the HMAC secret extension has been requested
+    if (new_hms) |hms| {
+        entry.cred_random_with_uv = hms.@"0";
+        entry.cred_random_without_uv = hms.@"1";
+    }
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     // 17. + 18. Store credential

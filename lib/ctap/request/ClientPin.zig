@@ -23,7 +23,7 @@ keyAgreement: ?cbor.cose.Key = null,
 pinUvAuthParam: ?dt.ABS32B = null,
 /// newPinEnc: Encrypted new PIN using sharedSecret. Encryption is
 /// done over UTF-8 representation of new PIN.
-newPinEnc: ?dt.ABS64B = null,
+newPinEnc: ?dt.ABS80B = null,
 /// pinHashEnc: Encrypted SHA-256 of PIN using sharedSecret.
 pinHashEnc: ?dt.ABS32B = null,
 /// permissions: Bitfield of permissions. If present, MUST NOT be 0.
