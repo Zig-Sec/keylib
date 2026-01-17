@@ -37,6 +37,20 @@ Example 1: Create a new credential with the given user id and the rpId "zigtober
 $ ./cred -r --uid 00112233445566778899aabbccddeeff --origin "zigtoberfest.de" -p 1234 0
 ```
 
+- `assert [-hp] [--cred <credId>] <device> <origin/rpId> <pubKey>`
+
+```
+Create one or multiple assertions for a relying party.
+
+Example 1: Generate an assertion for a specific credential specified by the credential ID `75651cc85f6f976917557c8dbeb54ae43fbbad0298aeda43f510aa6bbd634eb458c62e701abf78711d151b62db0348f4` and bound to the relying party `zigtoberfest.de`. The SEC1 public key `0475651cc85f6f976917557c8dbe3297f0a416465ee7f8c6d0049544032464df7684ae5836a18125cd3437a41442b4cfeb4619640bd84dbb0742a038490388d269` (uncompressed) is used for verification.
+
+$ ./assert -p 1234 --cred 75651cc85f6f976917557c8dbeb54ae43fbbad0298aeda43f510aa6bbd634eb458c62e701abf78711d151b62db0348f4 0 zigtoberfest.de 0475651cc85f6f976917557c8dbe3297f0a416465ee7f8c6d0049544032464df7684ae5836a18125cd3437a41442b4cfeb4619640bd84dbb0742a038490388d269
+
+Example 2: Generate assertions for all credential bound to the relying party `zigtoberfest.de`. The SEC1 public key `0475651cc85f6f976917557c8dbe3297f0a416465ee7f8c6d0049544032464df7684ae5836a18125cd3437a41442b4cfeb4619640bd84dbb0742a038490388d269` (uncompressed) is used for verification.
+
+$ ./assert -p 1234 0 zigtoberfest.de 0475651cc85f6f976917557c8dbe3297f0a416465ee7f8c6d0049544032464df7684ae5836a18125cd3437a41442b4cfeb4619640bd84dbb0742a038490388d269
+```
+
 - `metadata <device> [pin] [y/n]`
 
 ```

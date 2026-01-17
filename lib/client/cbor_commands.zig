@@ -443,7 +443,7 @@ pub const credentials = struct {
             challenge: []const u8,
             crossOrigin: bool = false,
             hms: bool = false,
-            // TODO: add allow list
+            allowList: ?[]const keylib.common.PublicKeyCredentialDescriptor = null,
             timeout: i64 = 30000,
         },
     ) !struct { Promise, [Sha256.digest_length]u8 } {
@@ -466,6 +466,7 @@ pub const credentials = struct {
         var ga = keylib.ctap.request.GetAssertion{
             .rpId = (try keylib.common.dt.ABS128T.fromSlice(params.rpId)).?,
             .clientDataHash = client_data_hash,
+            .allowList = if (params.allowList) |al| try .fromSlice(al) else null,
             .options = .{
                 .up = null,
                 .uv = null, // uv must not be set when using pinUvAuthParam

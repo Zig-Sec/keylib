@@ -60,6 +60,7 @@ pub fn main() !void {
         .allocator = allocator,
     }) catch |err| {
         diag.report(stderr, err) catch {};
+        try stderr.flush();
         return;
     };
     defer res.deinit();

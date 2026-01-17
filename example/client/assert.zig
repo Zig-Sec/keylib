@@ -42,6 +42,7 @@ pub fn main() !void {
         .allocator = allocator,
     }) catch |err| {
         diag.report(stderr, err) catch {};
+        try stderr.flush();
         return;
     };
     defer res.deinit();
@@ -149,6 +150,10 @@ pub fn main() !void {
             .rpId = origin,
             .crossOrigin = false,
             .challenge = &challenge,
+            .allowList = if (credId) |id| &.{.{
+                .id = (try client.ABS64B.fromSlice(id)).?,
+                .type = .@"public-key",
+            }} else null,
         },
     );
 
