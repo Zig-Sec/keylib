@@ -141,15 +141,24 @@ pub fn main() !void {
     var challenge: [32]u8 = undefined;
     std.crypto.random.bytes(&challenge);
 
+    const clientData = try client.clientDataAlloc(
+        allocator,
+        "webauthn.get",
+        &challenge,
+        origin,
+        false,
+    );
+    defer allocator.free(clientData);
+
     var promise, const clientDataHash = try client.getAssertion(
         device,
         token,
         pinUvAuthProtocol,
+        clientData,
         allocator,
         .{
             .rpId = origin,
             .crossOrigin = false,
-            .challenge = &challenge,
             .allowList = if (credId) |id| &.{.{
                 .id = (try client.ABS64B.fromSlice(id)).?,
                 .type = .@"public-key",

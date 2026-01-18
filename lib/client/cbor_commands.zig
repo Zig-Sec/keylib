@@ -298,38 +298,12 @@ pub const credentials = struct {
         param: ?[]const u8 = null,
     };
 
-    /// Create a client data hash
-    ///
-    /// ## Arguments
-    ///
-    /// - `typ`: "webauthn.create" / "webauthn.get"
-    /// - `challenge`: a challenge (nonce)
-    /// - `origin`: an origin (e.g. localhost)
-    /// - `corssOrigin`
+    /// Create a hash from client data
     pub fn clientDataHash(
-        a: std.mem.Allocator,
-        typ: []const u8,
-        challenge: []const u8,
-        origin: []const u8,
-        crossOrigin: bool,
-    ) ![Sha256.digest_length]u8 {
-        // The challenge is base64 encoded before being integrated into the client data
-        const Base64 = std.base64.url_safe.Encoder;
-        const c = try a.alloc(u8, Base64.calcSize(challenge.len));
-        defer a.free(c);
-        _ = Base64.encode(c, challenge);
-
-        // Serialize the client data and then hash them...
-        const client_data = try serialize(
-            a,
-            typ,
-            c,
-            origin,
-            crossOrigin,
-        );
-        defer a.free(client_data);
-        var client_data_hash: [Sha256.digest_length]u8 = undefined;
-        Sha256.hash(client_data, client_data_hash[0..], .{});
+        clientData: []const u8,
+    ) [std.crypto.hash.sha2.Sha256.digest_length]u8 {
+        var client_data_hash: [std.crypto.hash.sha2.Sha256.digest_length]u8 = undefined;
+        std.crypto.hash.sha2.Sha256.hash(clientData, client_data_hash[0..], .{});
 
         return client_data_hash;
     }
@@ -346,11 +320,11 @@ pub const credentials = struct {
         t: *Transport,
         token: []const u8,
         pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
+        clientData: []const u8,
         allocator: std.mem.Allocator,
         params: struct {
             rpId: []const u8,
             userId: []const u8,
-            challenge: []const u8,
             rpName: ?[]const u8 = null,
             crossOrigin: bool = false,
             userName: ?[]const u8 = null,
@@ -369,13 +343,7 @@ pub const credentials = struct {
         // Create client data hash
         // ===========================
 
-        const client_data_hash = try credentials.clientDataHash(
-            allocator,
-            "webauthn.create",
-            params.challenge,
-            params.rpId,
-            params.crossOrigin,
-        );
+        const client_data_hash = credentials.clientDataHash(clientData);
 
         // ===========================
         // Prepare data
@@ -437,10 +405,10 @@ pub const credentials = struct {
         t: *Transport,
         token: []const u8,
         pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
+        clientData: []const u8,
         allocator: std.mem.Allocator,
         params: struct {
             rpId: []const u8,
-            challenge: []const u8,
             crossOrigin: bool = false,
             hms: bool = false,
             allowList: ?[]const keylib.common.PublicKeyCredentialDescriptor = null,
@@ -451,13 +419,7 @@ pub const credentials = struct {
         // Create client data hash
         // ===========================
 
-        const client_data_hash = try credentials.clientDataHash(
-            allocator,
-            "webauthn.get",
-            params.challenge,
-            params.rpId,
-            params.crossOrigin,
-        );
+        const client_data_hash = credentials.clientDataHash(clientData);
 
         // ===========================
         // Prepare data

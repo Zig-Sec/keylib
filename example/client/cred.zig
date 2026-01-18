@@ -170,16 +170,25 @@ pub fn main() !void {
     var challenge: [32]u8 = undefined;
     std.crypto.random.bytes(&challenge);
 
+    const clientData = try client.clientDataAlloc(
+        allocator,
+        "webauthn.create",
+        &challenge,
+        origin,
+        false,
+    );
+    defer allocator.free(clientData);
+
     var promise = try client.makeCredential(
         device,
         token,
         pinUvAuthProtocol,
+        clientData,
         allocator,
         .{
             .rpId = origin,
             .crossOrigin = crossOrigin,
             .userId = user_id,
-            .challenge = &challenge,
             .rk = rk,
         },
     );

@@ -58,3 +58,28 @@ pub const cm = struct {
     pub const enumerateCredentialsGetNextCredential = cbor_commands.cred_management.enumerateCredentialsGetNextCredential;
     pub const deleteCredential = cbor_commands.cred_management.deleteCredential;
 };
+
+pub fn clientDataAlloc(
+    a: std.mem.Allocator,
+    typ: []const u8,
+    challenge: []const u8,
+    origin: []const u8,
+    crossOrigin: bool,
+) ![]const u8 {
+    // The challenge is base64 encoded before being integrated into the client data
+    const Base64 = std.base64.url_safe.Encoder;
+    const c = try a.alloc(u8, Base64.calcSize(challenge.len));
+    defer a.free(c);
+    _ = Base64.encode(c, challenge);
+
+    // Serialize the client data and then hash them...
+    return try cbor_commands.credentials.serialize(
+        a,
+        typ,
+        c,
+        origin,
+        crossOrigin,
+    );
+}
+
+pub const clientDataHash = cbor_commands.credentials.clientDataHash;
