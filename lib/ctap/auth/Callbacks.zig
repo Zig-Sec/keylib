@@ -116,6 +116,8 @@ pub const UvCallback = ?*const fn (
     user: ?fido.common.User,
     /// Information about the relying party (e.g., `Github (github.com)`)
     rp: ?fido.common.RelyingParty,
+    /// Optional pin hash for pin UV.
+    pinHash: ?[]const u8,
 ) UvResult;
 
 /// Read the first credential associated with `id` and `rp` into out
@@ -174,13 +176,8 @@ pub const Ctap2CommandMapping = struct {
 // Some other (optional) callbacks
 // +++++++++++++++++++++++++++++++++++++++++++++++++++
 
-/// A callback that gets the decrypted PIN hash passed to it.
-/// This allows things like deriving a secret from it for
-/// en-/decrypting secrets based on the PIN.
-///
-/// For this to work you need to use the default authenticatorClientPin
-/// function or incorporate this call into your own function.
-pub const ProcessPinHash = *const fn (ph: []const u8) void;
+/// Replace the CurrentStoredPIN with a new pin.
+pub const SetPin = *const fn (pin: []const u8) CallbackError!void;
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++
 // Callbacks
@@ -209,5 +206,5 @@ pub const Callbacks = struct {
     delete: DeleteCallback,
     read_settings: ReadSettingsCallback,
     write_settings: WriteSettingsCallback,
-    processPinHash: ?ProcessPinHash = null,
+    set_pin: ?SetPin = null,
 };

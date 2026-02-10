@@ -152,6 +152,146 @@ pub fn authenticatorClientPin(
                 .pinUvAuthToken = (dt.ABS48B.fromSlice(&enc_shared_secret) catch unreachable).?,
             };
         },
+        .getPinUvAuthTokenUsingPinWithPermissions => {
+            // 1. If the authenticator does not receive mandatory parameters for
+            // this command, it returns CTAP2_ERR_MISSING_PARAMETER error.
+            if (client_pin_param.pinUvAuthProtocol == null or
+                client_pin_param.keyAgreement == null or
+                client_pin_param.pinHashEnc == null or
+                client_pin_param.permissions == null)
+            {
+                return fido.ctap.StatusCodes.ctap2_err_missing_parameter;
+            }
+
+            // 2. If pinUvAuthProtocol is not supported, return
+            // CTAP1_ERR_INVALID_PARAMETER.
+            if (client_pin_param.pinUvAuthProtocol.? != auth.token.version) {
+                return fido.ctap.StatusCodes.ctap1_err_invalid_parameter;
+            }
+
+            // 3. If the authenticator receives a permissions parameter with value
+            // 0, return CTAP1_ERR_INVALID_PARAMETER.
+            if (client_pin_param.permissions.? == 0) {
+                return fido.ctap.StatusCodes.ctap1_err_invalid_parameter;
+            }
+
+            // Check if all requested premissions are valid
+            const options = auth.settings.options;
+            const cm = client_pin_param.cmPermissionSet() and (options.credMgmt == null or options.credMgmt.? == false);
+            const be = client_pin_param.bePermissionSet() and (options.bioEnroll == null);
+            const lbw = client_pin_param.lbwPermissionSet() and (options.largeBlobs == null or options.largeBlobs.? == false);
+            const acfg = client_pin_param.acfgPermissionSet() and (options.authnrCfg == null or options.authnrCfg.? == false);
+            // The mc and ga permissions are always considered authorized, thus they are not listed below.
+            if (cm or be or lbw or acfg) {
+                return fido.ctap.StatusCodes.ctap2_err_unauthorized_permission;
+            }
+
+            // 5. If the pinRetries counter is 0, return CTAP2_ERR_PIN_BLOCKED error.
+            var settings = auth.callbacks.read_settings();
+
+            if (settings.pinRetries == 0) {
+                return fido.ctap.StatusCodes.ctap2_err_pin_blocked;
+            }
+
+            // 6. The authenticator calls decapsulate on the provided platform
+            // key-agreement key to obtain the shared secret. If an error
+            // results, it returns CTAP1_ERR_INVALID_PARAMETER.
+            const shared_secret = auth.token.ecdh(client_pin_param.keyAgreement.?) catch {
+                return fido.ctap.StatusCodes.ctap1_err_invalid_parameter;
+            };
+
+            // 7. might be handeled by the uv callback
+
+            // 8. Authenticator decrements the pinRetries counter by 1.
+            settings.pinRetries -= 1;
+            auth.callbacks.write_settings(settings);
+
+            // 9. Authenticator decrypts pinHashEnc using decrypt and verifies
+            // against its internally stored CurrentStoredPIN.
+            var pinHash: [16]u8 = .{0} ** 16; // LEFT(SHA-256(newPin), 16)
+            auth.token.decrypt(
+                shared_secret.get(),
+                &pinHash,
+                client_pin_param.pinHashEnc.?.get(),
+            );
+
+            const authenticated = auth.callbacks.uv.?(
+                "Pin Verification",
+                null,
+                null,
+                &pinHash,
+            );
+            switch (authenticated) {
+                .Denied, .Timeout => {
+                    auth.token.regenerate();
+
+                    if (settings.pinRetries == 0) {
+                        return fido.ctap.StatusCodes.ctap2_err_pin_blocked;
+                    }
+
+                    // TODO check 3 consecutive retires to mitigate
+                    // DOS attacks
+
+                    return fido.ctap.StatusCodes.ctap2_err_pin_invalid;
+                },
+                .AcceptedWithUp => {},
+                .Accepted => {},
+            }
+
+            // 10. Authenticator sets the pinRetries counter to maximum value.
+            settings.uvRetries = 8;
+            auth.callbacks.write_settings(settings);
+
+            // 11. If the value of the forcePINChange member of the
+            // authenticatorGetInfo response is true, authenticator
+            // returns CTAP2_ERR_PIN_POLICY_VIOLATION. Platform on
+            // receiving such error response SHOULD direct the user
+            // to change the PIN.
+            if (settings.force_pin_change == true) {
+                return fido.ctap.StatusCodes.ctap2_err_pin_policy_violation;
+            }
+
+            // 12. TODO: handle pcmr token
+
+            // 13. Create a new pinUvAuthToken by calling resetPinUvAuthToken()
+            // for all pinUvAuthProtocols supported by this authenticator.
+            // (I.e. all existing pinUvAuthTokens are invalidated.)
+            auth.token.resetPinUvAuthToken(); // invalidates existing tokens
+
+            // 14. Call beginUsingPinUvAuthToken(userIsPresent: false).
+            auth.token.beginUsingPinUvAuthToken(
+                false,
+                auth.milliTimestamp(),
+            );
+
+            // 15. Assign the requested permissions to the pinUvAuthToken,
+            // ignoring any undefined permissions.
+            auth.token.permissions = client_pin_param.permissions.?;
+
+            // 16. If the rpId parameter is present, associate the permissions RP ID
+            // with the pinUvAuthToken.
+            if (client_pin_param.rpId) |rpId| {
+                auth.token.setRpId(rpId.get()) catch {
+                    // rpId is unexpectedly long
+                    return fido.ctap.StatusCodes.ctap1_err_other;
+                };
+            }
+
+            // The authenticator returns the encrypted pinUvAuthToken for the
+            // specified pinUvAuthProtocol, i.e. encrypt(shared secret, pinUvAuthToken).
+            var enc_shared_secret: [48]u8 = undefined;
+            auth.token.encrypt(
+                &auth.token,
+                shared_secret.get(),
+                enc_shared_secret[0..],
+                auth.token.pin_token[0..],
+            );
+
+            // Response
+            client_pin_response = .{
+                .pinUvAuthToken = (dt.ABS48B.fromSlice(&enc_shared_secret) catch unreachable).?,
+            };
+        },
         else => {
             return fido.ctap.StatusCodes.ctap2_err_invalid_subcommand;
         },

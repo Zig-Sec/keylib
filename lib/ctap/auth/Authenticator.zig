@@ -23,6 +23,16 @@ const Commands = fido.ctap.commands.Commands;
 const dt = fido.common.dt;
 const ClientDataHash = fido.ctap.crypto.ClientDataHash;
 
+/// Authenticator
+///
+/// ## pinUvAuth
+///
+/// When using some form of user verification, the following settings are valid:
+///
+/// - built in user verification (`uv = true`):
+///   - When using builtin user verification, one must also provide the `uv` callback.
+/// - pin authentication (`clientPin != null`):
+///   - When using client pin authentication, one must also provide the `uv` and `set_pin` callbacks.
 pub const Auth = struct {
     const Self = @This();
 
@@ -200,12 +210,10 @@ pub const Auth = struct {
     }
 
     pub fn clientPinSupported(self: *@This()) ?bool {
-        _ = self;
-        // We dont support clientPin (for now). The rational for this is
-        // that the focus of this library shifted towards platform authenticators
-        // which can implement builtin user verification (even passwords if
-        // they like).
-        return null;
+        return self.settings.options.clientPin != null and
+            self.settings.options.clientPin.? and
+            self.callbacks.uv != null and
+            self.callbacks.set_pin != null;
     }
 
     /// Returns true if the authenticator is protected by some form of user verification

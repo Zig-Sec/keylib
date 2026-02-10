@@ -124,7 +124,7 @@ pub fn performBuiltInUv(
         auth.callbacks.write_settings(settings);
         attemptsBeforeReturning -= 1;
 
-        const authenticated = auth.callbacks.uv.?(info, user, rp);
+        const authenticated = auth.callbacks.uv.?(info, user, rp, null);
         if (authenticated == .Accepted or authenticated == .AcceptedWithUp) {
             settings.uvRetries = 8;
             auth.callbacks.write_settings(settings);
