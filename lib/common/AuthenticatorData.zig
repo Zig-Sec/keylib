@@ -21,8 +21,19 @@ pub const Flags = packed struct(u8) {
     /// - 1 means the user is verified.
     /// - 0 means the user is not verified.
     uv: u1,
+    /// The BE flag SHALL be set if and only if the credential
+    /// is a multi-device credential. This value MUST NOT change
+    /// after a registration ceremony as defined in
+    /// Credential Backup State.
+    be: u1,
+    /// The BS flag SHALL be set if and only if the credential is a
+    /// multi-device credential and is currently backed up. If the
+    /// backup status of a credential is uncertain or the authenticator
+    /// suspects a problem with the backed up credential, the BS flag
+    /// SHOULD NOT be set.
+    bs: u1,
     /// Reserved for future use.
-    rfu2: u3,
+    rfu2: u1,
     /// Attested credential data includet (AT).
     /// Indicates whether the authenticator added attested
     /// credential data.
@@ -185,6 +196,8 @@ test "authData encoding" {
             .up = 1,
             .rfu1 = 0,
             .uv = 0,
+            .be = 0,
+            .bs = 0,
             .rfu2 = 0,
             .at = 1,
             .ed = 0,

@@ -8,6 +8,10 @@ This package can serve two purposes:
 
 1. Create FIDO2/ Passkey compatible authenticators:
     - One example is [PassKeeZ](https://codeberg.org/r4gus/PassKeeZ)
+    - Test the example using one of the following test sites:
+        - [passkey.org](https://passkey.org)
+        - [webauthn.io](https://webauthn.io/)
+        - [passkeys.io](https://www.passkeys.io/)
     - but you can also use the library on embedded devices, e.g. to create your own security key (similar to YubiKey, SoloKey, ...)
 2. Add FIDO2/ Passkey support to your application using the client module.
     - We provide a variety of examples [here](example/client/README.md)

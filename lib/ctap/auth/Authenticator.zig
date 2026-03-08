@@ -89,6 +89,28 @@ pub const Auth = struct {
         cdh: ClientDataHash,
     } = null,
 
+    /// Define if credentials created during makeCredential may be backed up (BE = 1).
+    /// This will set the `be` field of all new credentials to `true`.
+    ///
+    /// Credential backup eligibility and current backup state is conveyed by the BE
+    /// and BS flags in the authenticator data, as defined in the table below.
+    ///
+    /// The value of the BE flag is set during authenticatorMakeCredential operation
+    /// and MUST NOT change.
+    ///
+    /// The value of the BS flag may change over time based on the current state of
+    /// the public key credential source. Table  below defines valid combinations and
+    /// their meaning.
+    ///
+    ///  BE | BS |
+    /// -----------------------------------
+    ///  0  | 0  | The credential is a single-device credential.
+    ///  0  | 1  | This combination is not allowed.
+    ///  1  | 0  | The credential is a multi-device credential and is not currently backed up.
+    ///  1  | 1  | The credential is a multi-device credential and is currently backed up.
+    ///
+    general_backup_eligibility: bool = false,
+
     /// Cryptographic secure (P)RNG
     random: std.Random,
 

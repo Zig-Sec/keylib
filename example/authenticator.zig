@@ -106,6 +106,15 @@ pub fn main() !void {
         // of credentials (e.g. because you sync them between devices)
         // set this to true.
         .constSignCount = true,
+        // If you plan on implementing some backup strategy for your
+        // credentials, set this flag to `true`. This will set the `be`
+        // flag for all credentials.
+        //
+        // Don't forget to also set the `bs` flag for a credential after
+        // you've backed it up. You can also set the `bs` flag back to
+        // `false` but once you've set the `be` flag of a credential,
+        // you may not change it!
+        .general_backup_eligibility = true,
     };
     try auth.init();
 

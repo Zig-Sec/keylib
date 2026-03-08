@@ -346,6 +346,8 @@ pub fn authenticatorGetAssertion(
             .up = if (up_response) 1 else 0,
             .rfu1 = 0,
             .uv = if (uv_response) 1 else 0,
+            .be = if (selected_credential.?.be) 1 else 0,
+            .bs = if (selected_credential.?.bs) 1 else 0,
             .rfu2 = 0,
             .at = 0,
             .ed = 0,

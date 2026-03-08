@@ -396,6 +396,10 @@ pub fn authenticatorMakeCredential(
         .sign_count = 0, // the first signature will be included in the response
         .key = key_pair,
         .created = auth.milliTimestamp(),
+        // the credential might be backed up [Y/n]
+        .be = auth.general_backup_eligibility,
+        // We just created the credential, i.e. it hasn't been backed up yet
+        .bs = false,
     };
     entry.policy = policy;
 
@@ -461,6 +465,8 @@ pub fn authenticatorMakeCredential(
             .up = if (up_response) 1 else 0,
             .rfu1 = 0,
             .uv = if (uv_response) 1 else 0,
+            .be = if (entry.be) 1 else 0,
+            .bs = if (entry.bs) 1 else 0,
             .rfu2 = 0,
             .at = 1, // self attestation
             .ed = 1, // auth data contains extensions = 1, no extensions = 0

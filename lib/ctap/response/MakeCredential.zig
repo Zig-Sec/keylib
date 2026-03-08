@@ -154,6 +154,8 @@ test "attestationObject encoding - no attestation" {
             .up = 1,
             .rfu1 = 0,
             .uv = 0,
+            .be = 0,
+            .bs = 0,
             .rfu2 = 0,
             .at = 1,
             .ed = 0,

@@ -28,6 +28,18 @@ created: i64,
 /// that you're allowed to keep (some) state, e.g., store the key.
 discoverable: bool = false,
 
+/// The BE flag SHALL be set if and only if the credential
+/// is a multi-device credential. This value MUST NOT change
+/// after a registration ceremony.
+be: bool = false,
+
+/// The BS flag SHALL be set if and only if the credential is a
+/// multi-device credential and is currently backed up. If the
+/// backup status of a credential is uncertain or the authenticator
+/// suspects a problem with the backed up credential, the BS flag
+/// SHOULD NOT be set.
+bs: bool = false,
+
 policy: fido.ctap.extensions.CredentialCreationPolicy = .userVerificationOptional,
 
 // HMAC Secret Extension BEGIN
