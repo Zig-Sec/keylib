@@ -11,6 +11,7 @@ This package can serve two purposes:
     - but you can also use the library on embedded devices, e.g. to create your own security key (similar to YubiKey, SoloKey, ...)
 2. Add FIDO2/ Passkey support to your application using the client module.
     - We provide a variety of examples [here](example/client/README.md)
+    - On linux it might be required to install the `udev` developer package, e.g. `libudev-dev` on Ubuntu.
 
 > The CTAP2 specification offers a lot of configurations for authenticators. If you're looking for a specific example and can't find it here or run into a bug, consider opening an issue. I'm open to add new features as long as you're also willing to contribute (in some form) to the project.
 

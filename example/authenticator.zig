@@ -194,10 +194,15 @@ pub fn my_uv(
     user: ?keylib.common.User,
     /// Information about the relying party (e.g., `Github (github.com)`)
     rp: ?keylib.common.RelyingParty,
+    /// The pinHash can be used for comparison with the stored PIN hash
+    /// when using PIN based authentication.
+    pinHash: ?[]const u8,
 ) UvResult {
     _ = info;
     _ = user;
     _ = rp;
+    _ = pinHash;
+
     // The authenticator backend is only started if a correct password has been provided
     // so we return Accepted. As this state may last for multiple minutes it's important
     // that we ask for user presence, i.e. we DONT return AcceptedWithUp!
