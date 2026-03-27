@@ -84,8 +84,9 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    try b.modules.put(b.dupe("clientlib"), client_module);
     client_module.linkLibrary(hidapi_dep.artifact("hidapi"));
+
+    try b.modules.put(b.dupe("clientlib"), client_module);
 
     // Examples
     // ------------------------------------------------
