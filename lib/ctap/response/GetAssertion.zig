@@ -41,6 +41,15 @@ userSelected: ?bool = null, // 6
 /// credential, and if largeBlobKey was true in the extensions input.
 largeBlobKey: ?[]const u8 = null, // 7
 
+pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
+    allocator.free(self.authData);
+    allocator.free(self.signature);
+
+    if (self.largeBlobKey) |lbk| {
+        allocator.free(lbk);
+    }
+}
+
 pub fn cborStringify(self: *const @This(), options: cbor.Options, out: *std.Io.Writer) !void {
     _ = options;
 

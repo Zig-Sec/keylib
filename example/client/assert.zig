@@ -22,6 +22,8 @@ var stderr_writer = std.fs.File.stdout().writer(&stderr_buffer);
 const stderr = &stderr_writer.interface;
 
 pub fn main() !void {
+    defer _ = gpa.detectLeaks();
+
     var hms: bool = false;
     var pin: ?[]const u8 = null;
     var credIdBuffer: [64]u8 = .{0} ** 64;
@@ -131,6 +133,7 @@ pub fn main() !void {
             .rpId = origin,
         },
     );
+    defer allocator.free(token);
 
     // ============================================
     // Prepare the data for the request
@@ -190,6 +193,7 @@ pub fn main() !void {
             },
         }
     };
+    defer ga_response.deinit(allocator);
 
     //  authenticatorData || clientDataHash
     //
