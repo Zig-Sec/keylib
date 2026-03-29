@@ -17,6 +17,8 @@ var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
 const stdout = &stdout_writer.interface;
 
 pub fn main() !void {
+    defer _ = gpa.detectLeaks();
+
     const argv = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, argv);
 

@@ -21,6 +21,8 @@ var stderr_writer = std.fs.File.stdout().writer(&stderr_buffer);
 const stderr = &stderr_writer.interface;
 
 pub fn main() !void {
+    defer _ = gpa.detectLeaks();
+
     const argv = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, argv);
 
@@ -103,6 +105,7 @@ pub fn main() !void {
             .pin = pin,
         },
     );
+    defer allocator.free(token);
 
     // ============================================
     // Prepare the data for the request
