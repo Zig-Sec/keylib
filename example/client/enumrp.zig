@@ -21,6 +21,8 @@ var stderr_writer = std.fs.File.stdout().writer(&stderr_buffer);
 const stderr = &stderr_writer.interface;
 
 pub fn main() !void {
+    defer _ = gpa.detectLeaks();
+
     const argv = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, argv);
 
@@ -30,7 +32,7 @@ pub fn main() !void {
     // Allow device selection based on an index. Use this together with the
     // manifest example.
     if (argv.len < 2) {
-        try stderr.print("usage: metadata <device> [pin] [yubikey=[y/n]]\n", .{});
+        try stderr.print("usage: eunumrp <device> [pin] [yubikey=[y/n]]\n", .{});
         try stderr.flush();
         return;
     }
@@ -103,6 +105,7 @@ pub fn main() !void {
             .pin = pin,
         },
     );
+    defer allocator.free(token);
 
     // ============================================
     // Prepare the data for the request
