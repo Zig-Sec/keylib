@@ -17,6 +17,8 @@ var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
 const stdout = &stdout_writer.interface;
 
 pub fn main() !void {
+    defer _ = gpa.detectLeaks();
+
     // First, obtain a list of available authenticators.
     var transports = try client.Transports.enumerate(
         allocator,

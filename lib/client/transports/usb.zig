@@ -173,7 +173,6 @@ pub fn enumerate(a: std.mem.Allocator) Transports.Error!?[]Transport {
             };
 
             arr.append(a, t) catch {
-                arr.deinit(a);
                 return null;
             };
         }
@@ -182,7 +181,6 @@ pub fn enumerate(a: std.mem.Allocator) Transports.Error!?[]Transport {
     }
 
     return arr.toOwnedSlice(a) catch {
-        arr.deinit(a);
         return null;
     };
 }
