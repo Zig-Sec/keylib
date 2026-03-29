@@ -113,6 +113,7 @@ pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
     allocator.free(self.versions);
 
     if (self.extensions) |extensions| {
+        for (extensions) |ext| allocator.free(ext);
         allocator.free(extensions);
     }
 
