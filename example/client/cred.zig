@@ -22,6 +22,8 @@ var stderr_writer = std.fs.File.stdout().writer(&stderr_buffer);
 const stderr = &stderr_writer.interface;
 
 pub fn main() !void {
+    defer _ = gpa.detectLeaks();
+
     var rk = false;
     var uv = false;
     var hms: bool = false;
@@ -160,6 +162,7 @@ pub fn main() !void {
             .rpId = origin,
         },
     );
+    defer allocator.free(token);
 
     // ============================================
     // Prepare the data for the request
@@ -217,6 +220,7 @@ pub fn main() !void {
             },
         }
     };
+    defer mc_response.deinit(allocator);
 
     const credId = mc_response.authData.getCredId();
     const coseKey = try mc_response.authData.getCredentialPublicKey();

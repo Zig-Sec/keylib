@@ -38,6 +38,18 @@ pub const AttestationStatement = union(fido.common.AttestationStatementFormatIde
     /// Enumeration (enum AttestationConveyancePreference).
     none: struct {}, // no attestation
 
+    pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .@"packed" => |p| {
+                if (p.x5c) |x5c| {
+                    for (x5c) |v| allocator.free(v);
+                    allocator.free(x5c);
+                }
+            },
+            else => {},
+        }
+    }
+
     pub fn cborStringify(self: *const @This(), options: cbor.Options, out: *std.Io.Writer) !void {
         return cbor.stringify(self, .{
             .allocator = options.allocator,

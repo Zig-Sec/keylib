@@ -55,6 +55,10 @@ epAtt: ?bool = null,
 /// extension
 largeBlobKey: ?[]const u8 = null,
 
+pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
+    self.attStmt.deinit(allocator);
+}
+
 pub fn cborStringify(self: *const @This(), _: cbor.Options, out: *std.Io.Writer) !void {
     const AO = struct {
         fmt: AttestationStatementFormatIdentifiers,
