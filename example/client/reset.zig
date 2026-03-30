@@ -69,7 +69,7 @@ pub fn main() !void {
     //
     // This should be done within the first 10 seconds of powering
     // the authenticator and is a destructive operation.
-    var promise = try client.reset(device, 10000);
+    var promise = try client.reset(device, .{});
 
     // All commands return a "Promise", i.e. a data structure
     // that can represent different states. Usually, the initial

@@ -93,6 +93,10 @@ pub const Promise = struct {
     }
 };
 
+pub const CommandOptions = struct {
+    timeout: i64 = 30000, // 30s in ms
+};
+
 // ///////////////////////////////////////
 // Get Info (0x04)
 // ///////////////////////////////////////
@@ -104,20 +108,20 @@ pub const Promise = struct {
 pub const Info = keylib.ctap.authenticator.Settings;
 
 /// Make a authenticatorGetInfo request
-pub fn authenticatorGetInfo(t: *Transport) !Promise {
+pub fn authenticatorGetInfo(t: *Transport, opts: CommandOptions) !Promise {
     const cmd = "\x04";
     try t.write(cmd);
-    return Promise.new(t, 500);
+    return Promise.new(t, opts.timeout);
 }
 
 // ///////////////////////////////////////
 // Reset (0x07)
 // ///////////////////////////////////////
 
-pub fn authenticatorReset(t: *Transport, tout: i64) !Promise {
+pub fn authenticatorReset(t: *Transport, opts: CommandOptions) !Promise {
     const cmd = "\x07";
     try t.write(cmd);
-    return Promise.new(t, tout);
+    return Promise.new(t, opts.timeout);
 }
 
 // ///////////////////////////////////////
@@ -125,10 +129,10 @@ pub fn authenticatorReset(t: *Transport, tout: i64) !Promise {
 // ///////////////////////////////////////
 
 /// Make a authenticatorSelection request.
-pub fn authenticatorSelection(t: *Transport, timeout: i64) !Promise {
+pub fn authenticatorSelection(t: *Transport, opts: CommandOptions) !Promise {
     const cmd = "\x0b";
     try t.write(cmd);
-    return Promise.new(t, timeout);
+    return Promise.new(t, opts.timeout);
 }
 
 // ///////////////////////////////////////

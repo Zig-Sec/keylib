@@ -51,12 +51,13 @@ pub fn main() !void {
     var device = &transports.devices[device_index];
 
     // Next we have to open the selected device, to establish a connection.
-    device.open() catch {
-        // We won't deallocate the name as the process is terminated anyway.
+    device.open() catch |e| {
         const device_name = device.allocPrint(allocator) catch "";
+        defer allocator.free(device_name);
+
         std.log.err(
-            "Failed to open device '{s}'",
-            .{device_name},
+            "Failed to open device '{s}' ({any})",
+            .{ device_name, e },
         );
         return;
     };
@@ -68,7 +69,10 @@ pub fn main() !void {
     // This is usually the first step regardless of what you want to do
     // as the returned data tells us more about the capabilities of the
     // authenticator.
-    var promise = try client.getInfo(device);
+    //
+    // You can define the number of ms until a timeout occurs by setting
+    // the `timeout` field of the `opts` struct (second argument).
+    var promise = try client.getInfo(device, .{});
 
     // All commands return a "Promise", i.e. a data structure
     // that can represent different states. Usually, the initial

@@ -106,7 +106,7 @@ pub fn main() !void {
     // Obtain information about the device
     // ============================================
 
-    var info_state = try (try client.getInfo(device)).await(allocator);
+    var info_state = try (try client.getInfo(device, .{})).await(allocator);
     defer info_state.deinit(allocator);
     const info = try info_state.deserializeCbor(client.Info, allocator);
     defer info.deinit(allocator);

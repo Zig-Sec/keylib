@@ -72,7 +72,7 @@ pub fn main() !void {
     // Now lets get some information about the authenticator.
     // In this case we're going to use a blocking operation that waits for
     // the result.
-    var info_state = try (try client.getInfo(device)).await(allocator);
+    var info_state = try (try client.getInfo(device, .{})).await(allocator);
     defer info_state.deinit(allocator);
     // We then have to deserialize the returned CBOR data.
     const info = try info_state.deserializeCbor(client.Info, allocator);

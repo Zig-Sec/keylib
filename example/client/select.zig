@@ -43,7 +43,7 @@ pub fn main() !void {
 
         try promises.append(
             allocator,
-            try authenticatorSelection(device, 30000),
+            try authenticatorSelection(device, .{}),
         );
     }
 
