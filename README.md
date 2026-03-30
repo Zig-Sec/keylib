@@ -7,7 +7,9 @@ FIDO2 compatible *authenticator* and *client* library written in [Zig](https://z
 This package can serve two purposes:
 
 1. Create FIDO2/ Passkey compatible authenticators:
-    - One example is [PassKeeZ](https://codeberg.org/r4gus/PassKeeZ)
+    - Examples 
+        - [PassKeeZ](https://codeberg.org/r4gus/PassKeeZ) - A FIDO/ Passkey compatible Authenticator for Linux
+        - [PassKeeZero](https://codeberg.org/r4gus/PassKeeZ-Zero) - Turn your Raspberry Pi Zero 2 W into a FIDO2 security key
     - Test the example using one of the following test sites:
         - [passkey.org](https://passkey.org)
         - [webauthn.io](https://webauthn.io/)
