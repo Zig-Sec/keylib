@@ -184,6 +184,10 @@ The authenticator example uses `88655` bytes of stack space when compiled with `
 - [CTAP2.2](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#intro) - FIDO Alliance
 - [WebAuthn](https://www.w3.org/TR/webauthn-3/) - W3C
 - [CBOR RFC8949](https://www.rfc-editor.org/rfc/rfc8949.html) - C. Bormann and P. Hoffman
+- Proprietary Credential Exchange APIs
+    - [Android (Credential Providerevents)](https://developer.android.com/jetpack/androidx/releases/credentials-providerevents#1.0.0-alpha06)
+    - [Apple (ASCredentialExportManager)](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager)
+    - `"It’s important to note that CXF only defines the format. Because the Credential Exchange Protocol (CXP) is still under development, today’s transfers are limited to local, on-device migrations. Cross-device and cross-platform exchanges will be possible once CXP is finalized and adopted by platforms."` - [1Password](https://www.1password.community/blog/developer-blog/portability-without-compromise-1password-helps-author-a-new-standard-for-secure-/163208)
 
 ---
 
