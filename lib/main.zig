@@ -240,7 +240,18 @@ pub const ctap = struct {
     }
 };
 
+/// Code base that mimics the following browser interfaces for
+/// passkeys:
+/// - `navigator.credentials.create`
+/// - `navigator.credentials.get`
+///
+/// We only provide part of the data structures required
+/// to implement passkey based authentication for native
+/// clients using. You don't necessaryly have to use them.
+pub const web = @import("web.zig");
+
 test "library tests" {
     _ = common;
     _ = ctap;
+    _ = web;
 }
