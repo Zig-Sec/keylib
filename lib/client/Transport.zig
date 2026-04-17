@@ -29,6 +29,8 @@ pub const Error = error{
     InvalidSize,
     Processing,
     UpNeeded,
+    Canceled,
+    EntropyUnavailable,
     Other,
 };
 

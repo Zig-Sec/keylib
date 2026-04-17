@@ -13,7 +13,7 @@ pub const Error = error{
 };
 
 pub const EnumerateOptions = struct {
-    funs: []const *const fn (a: std.mem.Allocator) Error!?[]Transport = &.{
+    funs: []const *const fn (a: std.mem.Allocator, io: std.Io) Error!?[]Transport = &.{
         usb.enumerate,
     },
 };
@@ -31,12 +31,12 @@ pub fn deinit(self: *const Self) void {
 }
 
 /// Find all connected devices
-pub fn enumerate(a: std.mem.Allocator, options: EnumerateOptions) Error!Self {
+pub fn enumerate(a: std.mem.Allocator, io: std.Io, options: EnumerateOptions) Error!Self {
     var arr: std.ArrayListUnmanaged(Transport) = .empty;
     errdefer arr.deinit(a);
 
     for (options.funs) |fun| {
-        if (try fun(a)) |v| {
+        if (try fun(a, io)) |v| {
             defer a.free(v);
 
             try arr.appendSlice(a, v);

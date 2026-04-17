@@ -8,20 +8,21 @@ const std = @import("std");
 const client = @import("client");
 
 // Allocator to be used for allocating dynamic memory.
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = std.heap.DebugAllocator(.{}){};
 var allocator = gpa.allocator();
 
-// Buffered stdout (don't forget to flush!).
-var stdout_buffer: [1024]u8 = undefined;
-var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-const stdout = &stdout_writer.interface;
-
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     defer _ = gpa.detectLeaks();
+
+    // Buffered stdout (don't forget to flush!).
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buffer);
+    const stdout = &stdout_writer.interface;
 
     // First, obtain a list of available authenticators.
     var transports = try client.Transports.enumerate(
         allocator,
+        init.io,
         .{},
     );
     defer transports.deinit();

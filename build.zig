@@ -47,7 +47,6 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    try b.modules.put(b.dupe("keylib"), keylib_module);
 
     var uhid_module_exists: bool = false;
     const uhid_module = if (target.result.os.tag == .linux) blk: {
@@ -58,19 +57,17 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         });
-        try b.modules.put(b.dupe("uhid"), uhid_module);
         break :blk uhid_module;
     } else blk: {
         const uhid_module = b.addModule("uhid", .{
             .target = target,
             .optimize = optimize,
         });
-        try b.modules.put(b.dupe("uhid"), uhid_module);
         break :blk uhid_module;
     };
 
     // Re-export zbor module
-    try b.modules.put(b.dupe("zbor"), zbor_module);
+    try b.modules.put(b.allocator, b.dupe("zbor"), zbor_module);
 
     // Client Module
     // ------------------------------------------------
@@ -85,8 +82,6 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
     client_module.linkLibrary(hidapi_dep.artifact("hidapi"));
-
-    try b.modules.put(b.dupe("clientlib"), client_module);
 
     // Examples
     // ------------------------------------------------
@@ -135,6 +130,7 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = b.path("example/authenticator.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
 
     var authenticator_example = b.addExecutable(.{
@@ -146,7 +142,6 @@ pub fn build(b: *std.Build) !void {
         authenticator_example.root_module.addImport("uhid", uhid_module);
     }
     authenticator_example.root_module.addImport("zbor", zbor_dep.module("zbor"));
-    authenticator_example.linkLibC();
 
     const authenticator_example_step = b.step("auth-example", "Build the authenticator example");
     authenticator_example_step.dependOn(&b.addInstallArtifact(authenticator_example, .{}).step);

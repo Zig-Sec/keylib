@@ -7,7 +7,7 @@ const err = @import("error.zig");
 /// The Promise represents the eventual completion of a operation.
 pub const Promise = struct {
     t: *Transport,
-    start: i64,
+    start: std.Io.Timestamp,
     timeout: i64,
 
     pub const StateTag = enum { pending, fulfilled, rejected };
@@ -39,10 +39,10 @@ pub const Promise = struct {
     };
 
     /// Create a new Promise with a timeout in ms.
-    pub fn new(t: *Transport, timeout: i64) @This() {
+    pub fn new(t: *Transport, io: std.Io, timeout: i64) @This() {
         return .{
             .t = t,
-            .start = std.time.milliTimestamp(),
+            .start = std.Io.Timestamp.now(io, .real),
             .timeout = timeout,
         };
     }
@@ -50,9 +50,9 @@ pub const Promise = struct {
     /// Wait until the promise is fulfilled.
     ///
     /// Either returns fulfilled or an error.
-    pub fn await(self: *const @This(), allocator: std.mem.Allocator) !State {
+    pub fn await(self: *const @This(), allocator: std.mem.Allocator, io: std.Io) !State {
         while (true) {
-            const S = self.get(allocator);
+            const S = self.get(allocator, io);
 
             switch (S) {
                 .pending => {},
@@ -63,8 +63,10 @@ pub const Promise = struct {
     }
 
     /// Query the current state of the Promise.
-    pub fn get(self: *const @This(), allocator: std.mem.Allocator) State {
-        if (std.time.milliTimestamp() - self.start > self.timeout) {
+    pub fn get(self: *const @This(), allocator: std.mem.Allocator, io: std.Io) State {
+        const duration = self.start.untilNow(io, .real);
+
+        if (duration.toMilliseconds() > self.timeout) {
             return .{ .rejected = err.StatusCodes.client_timeout };
             // TODO: should we send a abort message or something???
         }
@@ -108,20 +110,20 @@ pub const CommandOptions = struct {
 pub const Info = keylib.ctap.authenticator.Settings;
 
 /// Make a authenticatorGetInfo request
-pub fn authenticatorGetInfo(t: *Transport, opts: CommandOptions) !Promise {
+pub fn authenticatorGetInfo(t: *Transport, io: std.Io, opts: CommandOptions) !Promise {
     const cmd = "\x04";
     try t.write(cmd);
-    return Promise.new(t, opts.timeout);
+    return Promise.new(t, io, opts.timeout);
 }
 
 // ///////////////////////////////////////
 // Reset (0x07)
 // ///////////////////////////////////////
 
-pub fn authenticatorReset(t: *Transport, opts: CommandOptions) !Promise {
+pub fn authenticatorReset(t: *Transport, io: std.Io, opts: CommandOptions) !Promise {
     const cmd = "\x07";
     try t.write(cmd);
-    return Promise.new(t, opts.timeout);
+    return Promise.new(t, io, opts.timeout);
 }
 
 // ///////////////////////////////////////
@@ -129,10 +131,10 @@ pub fn authenticatorReset(t: *Transport, opts: CommandOptions) !Promise {
 // ///////////////////////////////////////
 
 /// Make a authenticatorSelection request.
-pub fn authenticatorSelection(t: *Transport, opts: CommandOptions) !Promise {
+pub fn authenticatorSelection(t: *Transport, io: std.Io, opts: CommandOptions) !Promise {
     const cmd = "\x0b";
     try t.write(cmd);
-    return Promise.new(t, opts.timeout);
+    return Promise.new(t, io, opts.timeout);
 }
 
 // ///////////////////////////////////////
@@ -145,6 +147,7 @@ pub fn authenticatorSelection(t: *Transport, opts: CommandOptions) !Promise {
 pub fn pinUvAuthToken(
     t: *Transport,
     allocator: std.mem.Allocator,
+    io: std.Io,
     info: Info,
     params: struct {
         rpId: ?[]const u8 = null,
@@ -164,6 +167,7 @@ pub fn pinUvAuthToken(
         t,
         pinUvAuthProtocol,
         allocator,
+        io,
     );
 
     // Obtain pinUvAuthToken
@@ -216,6 +220,7 @@ pub fn pinUvAuthToken(
                 params.rpId,
                 params.pin.?, // we have already checked that the pin is present
                 allocator,
+                io,
             );
         } else { // the pinUvAuthToken option ID is absent
             token = try client_pin.getPinToken(
@@ -223,6 +228,7 @@ pub fn pinUvAuthToken(
                 &shared_secret,
                 params.pin.?, // we have already checked that pin is present
                 allocator,
+                io,
             );
         }
     } else {
@@ -326,6 +332,7 @@ pub const credentials = struct {
         pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
         clientData: []const u8,
         allocator: std.mem.Allocator,
+        io: std.Io,
         params: struct {
             rpId: []const u8,
             userId: []const u8,
@@ -402,7 +409,7 @@ pub const credentials = struct {
 
         try t.write(arr.written());
 
-        return Promise.new(t, params.timeout);
+        return Promise.new(t, io, params.timeout);
     }
 
     pub fn getAssertion(
@@ -411,6 +418,7 @@ pub const credentials = struct {
         pinUvAuthProtocol: keylib.ctap.pinuv.common.PinProtocol,
         clientData: []const u8,
         allocator: std.mem.Allocator,
+        io: std.Io,
         params: struct {
             rpId: []const u8,
             crossOrigin: bool = false,
@@ -465,12 +473,13 @@ pub const credentials = struct {
 
         try t.write(arr.written());
 
-        return .{ Promise.new(t, params.timeout), client_data_hash };
+        return .{ Promise.new(t, io, params.timeout), client_data_hash };
     }
 
     pub fn getNextAssertion(
         t: *Transport,
         allocator: std.mem.Allocator,
+        io: std.Io,
         params: struct {
             timeout: i64 = 30000,
         },
@@ -488,7 +497,7 @@ pub const credentials = struct {
 
         try t.write(arr.written());
 
-        return Promise.new(t, params.timeout);
+        return Promise.new(t, io, params.timeout);
     }
 
     /// Serialize the collected client data.
@@ -573,11 +582,12 @@ pub const client_pin = struct {
     };
 
     pub fn encapsulate(
+        io: std.Io,
         version: keylib.ctap.pinuv.common.PinProtocol,
         peer_cose_key: cbor.cose.Key,
     ) !Encapsulation {
         var seed: [EcdhP256.secret_length]u8 = undefined;
-        std.crypto.random.bytes(seed[0..]);
+        try io.randomSecure(seed[0..]);
         const k = try EcdhP256.KeyPair.create(seed);
 
         const shared_point = try EcdhP256.scalarmultXY(
@@ -604,6 +614,7 @@ pub const client_pin = struct {
         t: *Transport,
         version: keylib.ctap.pinuv.common.PinProtocol,
         a: std.mem.Allocator,
+        io: std.Io,
     ) !Encapsulation {
         const cmd = 0x06;
         const request = ClientPin{
@@ -630,7 +641,7 @@ pub const client_pin = struct {
 
             if (cpr.keyAgreement == null) return error.MissingPar;
 
-            return try encapsulate(version, cpr.keyAgreement.?);
+            return try encapsulate(io, version, cpr.keyAgreement.?);
         } else {
             return error.MissingResponse;
         }
@@ -656,6 +667,7 @@ pub const client_pin = struct {
         e: *Encapsulation, // shared secret
         newPin: []const u8,
         a: std.mem.Allocator,
+        io: std.Io,
     ) !Promise {
         // 63 bytes is the limit for pins
         if (newPin.len > 63) return error.pin;
@@ -694,7 +706,7 @@ pub const client_pin = struct {
             },
             .V2 => {
                 // Encrypt padded PIN
-                std.crypto.random.bytes(_newPinEnc[0..16]);
+                try io.randomSecure(_newPinEnc[0..16]);
                 PinUvAuth._encrypt(
                     _newPinEnc[0..16].*,
                     e.shared_secret.get()[32..64].*,
@@ -722,7 +734,7 @@ pub const client_pin = struct {
 
         try t.write(arr.written());
 
-        return Promise.new(t, 500);
+        return Promise.new(t, io, 500);
     }
 
     /// Change an existing PIN for an authenticator.
@@ -735,6 +747,7 @@ pub const client_pin = struct {
         curPin: []const u8,
         newPin: []const u8,
         a: std.mem.Allocator,
+        io: std.Io,
     ) !Promise {
         // 63 bytes is the limit for pins
         if (curPin.len > 63) return error.pin;
@@ -800,7 +813,7 @@ pub const client_pin = struct {
             },
             .V2 => {
                 // Encrypt PIN hash
-                std.crypto.random.bytes(_pinHashEnc[0..16]);
+                try io.randomSecure(_pinHashEnc[0..16]);
                 PinUvAuth._encrypt(
                     _pinHashEnc[0..16].*,
                     e.shared_secret.get()[32..64].*,
@@ -812,7 +825,7 @@ pub const client_pin = struct {
                 );
 
                 // Encrypt padded PIN
-                std.crypto.random.bytes(_newPinEnc[0..16]);
+                try io.randomSecure(_newPinEnc[0..16]);
                 PinUvAuth._encrypt(
                     _newPinEnc[0..16].*,
                     e.shared_secret.get()[32..64].*,
@@ -843,7 +856,7 @@ pub const client_pin = struct {
 
         try t.write(arr.written());
 
-        return Promise.new(t, 500);
+        return Promise.new(t, io, 500);
     }
 
     pub fn getPinToken(
@@ -851,6 +864,7 @@ pub const client_pin = struct {
         e: *Encapsulation,
         pin: []const u8,
         a: std.mem.Allocator,
+        io: std.Io,
     ) ![]const u8 {
         const cmd = 0x06;
         var request = ClientPin{
@@ -880,7 +894,7 @@ pub const client_pin = struct {
                 pinHashEnc = _pinHashEnc[0..16];
             },
             .V2 => {
-                std.crypto.random.bytes(_pinHashEnc[0..16]);
+                try io.randomSecure(_pinHashEnc[0..16]);
                 PinUvAuth._encrypt(
                     _pinHashEnc[0..16].*,
                     e.shared_secret.get()[32..64].*,
@@ -935,6 +949,7 @@ pub const client_pin = struct {
         rpId: ?[]const u8,
         pin: []const u8,
         a: std.mem.Allocator,
+        io: std.Io,
     ) ![]const u8 {
         const cmd = 0x06;
         var request = ClientPin{
@@ -969,7 +984,7 @@ pub const client_pin = struct {
                 pinHashEnc = _pinHashEnc[0..16];
             },
             .V2 => {
-                std.crypto.random.bytes(_pinHashEnc[0..16]);
+                try io.randomSecure(_pinHashEnc[0..16]);
                 PinUvAuth._encrypt(
                     _pinHashEnc[0..16].*,
                     e.shared_secret.get()[32..64].*,

@@ -9,20 +9,20 @@ const clap = @import("clap");
 const client = @import("client");
 
 // Allocator to be used for allocating dynamic memory.
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = std.heap.DebugAllocator(.{}){};
 var allocator = gpa.allocator();
 
-// Buffered stdout (don't forget to flush!).
-var stdout_buffer: [1024]u8 = undefined;
-var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-const stdout = &stdout_writer.interface;
-
-var stderr_buffer: [1024]u8 = undefined;
-var stderr_writer = std.fs.File.stdout().writer(&stderr_buffer);
-const stderr = &stderr_writer.interface;
-
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     defer _ = gpa.detectLeaks();
+
+    // Buffered stdout (don't forget to flush!).
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    var stderr_buffer: [1024]u8 = undefined;
+    var stderr_writer = std.Io.File.stderr().writer(init.io, &stderr_buffer);
+    const stderr = &stderr_writer.interface;
 
     var rk = false;
     var uv = false;
@@ -57,7 +57,7 @@ pub fn main() !void {
     );
 
     var diag = clap.Diagnostic{};
-    var res = clap.parse(clap.Help, &params, clap.parsers.default, .{
+    var res = clap.parse(clap.Help, &params, clap.parsers.default, init.minimal.args, .{
         .diagnostic = &diag,
         .allocator = allocator,
     }) catch |err| {
@@ -108,6 +108,7 @@ pub fn main() !void {
 
     var transports = try client.Transports.enumerate(
         allocator,
+        init.io,
         .{},
     );
     defer transports.deinit();
@@ -141,7 +142,7 @@ pub fn main() !void {
     // Obtain information about the device
     // ============================================
 
-    var info_state = try (try client.getInfo(device, .{})).await(allocator);
+    var info_state = try (try client.getInfo(device, init.io, .{})).await(allocator, init.io);
     defer info_state.deinit(allocator);
     const info = try info_state.deserializeCbor(client.Info, allocator);
     defer info.deinit(allocator);
@@ -153,6 +154,7 @@ pub fn main() !void {
     const pinUvAuthProtocol, const token = try client.pinUvAuthToken(
         device,
         allocator,
+        init.io,
         info,
         .{
             .permissions = .{
@@ -171,7 +173,7 @@ pub fn main() !void {
     // A challenge is a nonce used to prevent replay attacks.
     // It should be chosen at random.
     var challenge: [32]u8 = undefined;
-    std.crypto.random.bytes(&challenge);
+    try init.io.randomSecure(&challenge);
 
     const clientData = try client.clientDataAlloc(
         allocator,
@@ -188,6 +190,7 @@ pub fn main() !void {
         pinUvAuthProtocol,
         clientData,
         allocator,
+        init.io,
         .{
             .rpId = origin,
             .crossOrigin = crossOrigin,
@@ -197,7 +200,7 @@ pub fn main() !void {
     );
 
     const mc_response = outer: while (true) {
-        const state = promise.get(allocator);
+        const state = promise.get(allocator, init.io);
         defer state.deinit(allocator);
 
         switch (state) {

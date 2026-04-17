@@ -1,23 +1,25 @@
 .{
     .name = .keylib,
-    .version = "0.9.1",
+    .version = "0.10.0",
     .fingerprint = 0xc25aabcf9323b699,
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .zbor = .{
-            .url = "https://codeberg.org/r4gus/zbor/archive/0.20.2.tar.gz",
-            .hash = "zbor-0.20.2-kr-CoHhkAwB_l8MMGmuzDEEsC1kyKxRl21otYhqAYzcW",
+            .url = "https://codeberg.org/r4gus/zbor/archive/0.21.0.tar.gz",
+            .hash = "zbor-0.21.0-kr-CoMd7AwAj1t5CJoR8CoYr9CLQCNwBTNZEYYE9SBk0",
         },
         .hidapi = .{
-            .url = "https://codeberg.org/r4gus/hidapi/archive/0.1.1.tar.gz",
-            .hash = "hidapi-0.1.1-NHRObkYVAAATc-ODas84Ze8Vs8c4sY4O5DdtiY3qem2C",
+            //.url = "https://codeberg.org/r4gus/hidapi/archive/0.1.1.tar.gz",
+            //.hash = "hidapi-0.1.1-NHRObkYVAAATc-ODas84Ze8Vs8c4sY4O5DdtiY3qem2C",
+            .path = "../hidapi",
         },
         .uuid = .{
-            .url = "https://codeberg.org/r4gus/uuid-zig/archive/0.4.0.tar.gz",
-            .hash = "uuid-0.4.0-oOieIR2AAAChAUVBY4ABjYI1XN0EbVALmiN0JIlggC3i",
+            .url = "https://codeberg.org/r4gus/uuid-zig/archive/0.5.0.tar.gz",
+            .hash = "uuid-0.5.0-oOieIQx-AABtc9U3ihv_bf9pZAYoKp4UMsNFHBr-cn-w",
         },
         .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.11.0.tar.gz",
-            .hash = "clap-0.11.0-oBajB-HnAQDPCKYzwF7rO3qDFwRcD39Q0DALlTSz5H7e",
+            .url = "git+https://github.com/Hejsil/zig-clap#fc1e5cc3f6d9d3001112385ee6256d694e959d2f",
+            .hash = "clap-0.11.0-oBajB7foAQC3Iyn4IVCkUdYaOVVng5IZkSncySTjNig1",
         },
     },
     .paths = .{

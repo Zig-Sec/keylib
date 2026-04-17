@@ -22,6 +22,7 @@ pub const Usb = struct {
     device: ?*hidapi.hid_device = null,
     channel: ?ctaphid.InitResponse = null,
     allocator: std.mem.Allocator,
+    io: std.Io,
 
     /// Deinitialize the given USB connection
     ///
@@ -143,7 +144,7 @@ pub fn allocPrint(self: *anyopaque, a: std.mem.Allocator) Transport.Error![]cons
 }
 
 /// Enumerate all connected USB devices and return those as Transport's that might be a authenticator
-pub fn enumerate(a: std.mem.Allocator) Transports.Error!?[]Transport {
+pub fn enumerate(a: std.mem.Allocator, io: std.Io) Transports.Error!?[]Transport {
     var devices = hidapi.hid_enumerate(0, 0);
     defer hidapi.hid_free_enumeration(devices);
 
@@ -160,6 +161,7 @@ pub fn enumerate(a: std.mem.Allocator) Transports.Error!?[]Transport {
                 .manufacturer = try a.dupe(u8, wchar_t_to_str(devices.*.manufacturer_string)),
                 .product = try a.dupe(u8, wchar_t_to_str(devices.*.product_string)),
                 .allocator = a,
+                .io = io,
             };
 
             const t = Transport{

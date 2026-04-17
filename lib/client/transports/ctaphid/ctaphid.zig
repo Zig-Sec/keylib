@@ -16,7 +16,7 @@ const Usb = @import("../usb.zig").Usb;
 
 pub fn init(usb: *Usb) !void {
     var nonce: [8]u8 = undefined;
-    std.crypto.random.bytes(nonce[0..]);
+    try usb.io.randomSecure(nonce[0..]);
 
     var request = CtapHidMessageIterator.new(0xffffffff, Cmd.init);
     request.data = nonce[0..];
@@ -63,10 +63,11 @@ pub fn ctaphid_read(usb: *Usb, cmd: Cmd, cid: u32, tout_ms: i64, a: std.mem.Allo
     var total: usize = 0;
     var seq: i16 = -1;
     var data: [7609]u8 = undefined;
-    const start = std.time.milliTimestamp();
+
+    const start = std.Io.Timestamp.now(usb.io, .real);
 
     while (true) {
-        if (std.time.milliTimestamp() - start > tout_ms) return error.Timeout;
+        if (start.untilNow(usb.io, .real).toMilliseconds() > tout_ms) return error.Timeout;
 
         var buffer: [64]u8 = undefined;
         const l = try usb.read(&buffer, cid);
