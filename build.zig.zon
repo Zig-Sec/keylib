@@ -9,9 +9,8 @@
             .hash = "zbor-0.21.1-kr-CoPJ7AwCFwvJhlhfWF-E4qI7rnHF0MM0NwuZ1WOdU",
         },
         .hidapi = .{
-            //.url = "https://codeberg.org/r4gus/hidapi/archive/0.1.1.tar.gz",
-            //.hash = "hidapi-0.1.1-NHRObkYVAAATc-ODas84Ze8Vs8c4sY4O5DdtiY3qem2C",
-            .path = "../hidapi",
+            .url = "https://codeberg.org/r4gus/hidapi/archive/0.2.0.tar.gz",
+            .hash = "hidapi-0.1.1-NHRObrATAADCS4UP65E25v9TsFSMoQ3cQfTk6Ok79zZ4",
         },
         .uuid = .{
             .url = "https://codeberg.org/r4gus/uuid-zig/archive/0.5.0.tar.gz",
