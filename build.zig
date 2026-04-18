@@ -198,6 +198,11 @@ pub fn build(b: *std.Build) !void {
         .root_module = keylib_module,
     });
 
+    const client_tests = b.addTest(.{
+        .root_module = client_module,
+    });
+
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&b.addRunArtifact(lib_tests).step);
+    test_step.dependOn(&b.addRunArtifact(client_tests).step);
 }
