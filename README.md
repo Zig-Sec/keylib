@@ -26,6 +26,7 @@ This package can serve two purposes:
 | 0.13.0      | 0.5.0, 0.5.1, 0.5.2, 0.5.3 |
 | 0.14.x      | 0.6.0, 0.6.1 |
 | 0.15.x      | 0.7.0, 0.8.0 |
+| 0.16.x      | master |
 
 ## Getting Started
 
@@ -190,6 +191,11 @@ The authenticator example uses `88655` bytes of stack space when compiled with `
     - [Android (Credential Providerevents)](https://developer.android.com/jetpack/androidx/releases/credentials-providerevents#1.0.0-alpha06)
     - [Apple (ASCredentialExportManager)](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager)
     - `"It’s important to note that CXF only defines the format. Because the Credential Exchange Protocol (CXP) is still under development, today’s transfers are limited to local, on-device migrations. Cross-device and cross-platform exchanges will be possible once CXP is finalized and adopted by platforms."` - [1Password](https://www.1password.community/blog/developer-blog/portability-without-compromise-1password-helps-author-a-new-standard-for-secure-/163208)
+- Credential Provider API (examples)
+    - [Android (docs)](https://developer.android.com/identity/sign-in/credential-provider)
+        - [Credential Provider Example](https://github.com/android/identity-samples/tree/main/CredentialProvider/MyVault) - Official example by Android
+    - [iOS](https://github.com/Dashlane/apple-credential-provider-example) - MIT licensed example by Dashlane
+    - [Windows](https://github.com/microsoft/Windows-classic-samples/tree/main/Samples/PasskeyManager) - Official example released by Microsoft
 
 ---
 

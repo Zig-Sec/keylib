@@ -8,23 +8,23 @@ const std = @import("std");
 const client = @import("client");
 
 // Allocator to be used for allocating dynamic memory.
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = std.heap.DebugAllocator(.{}){};
 var allocator = gpa.allocator();
 
-// Buffered stdout (don't forget to flush!).
-var stdout_buffer: [1024]u8 = undefined;
-var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-const stdout = &stdout_writer.interface;
-
-var stderr_buffer: [1024]u8 = undefined;
-var stderr_writer = std.fs.File.stdout().writer(&stderr_buffer);
-const stderr = &stderr_writer.interface;
-
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     defer _ = gpa.detectLeaks();
 
-    const argv = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, argv);
+    // Buffered stdout (don't forget to flush!).
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    var stderr_buffer: [1024]u8 = undefined;
+    var stderr_writer = std.Io.File.stderr().writer(init.io, &stderr_buffer);
+    const stderr = &stderr_writer.interface;
+
+    const argv = try init.minimal.args.toSlice(allocator);
+    defer allocator.free(argv);
 
     var pin: ?[]const u8 = null;
     var yubikey = false;
@@ -52,6 +52,7 @@ pub fn main() !void {
 
     var transports = try client.Transports.enumerate(
         allocator,
+        init.io,
         .{},
     );
     defer transports.deinit();
@@ -85,7 +86,7 @@ pub fn main() !void {
     // Obtain information about the device
     // ============================================
 
-    var info_state = try (try client.getInfo(device, .{})).await(allocator);
+    var info_state = try (try client.getInfo(device, init.io, .{})).await(allocator, init.io);
     defer info_state.deinit(allocator);
     const info = try info_state.deserializeCbor(client.Info, allocator);
     defer info.deinit(allocator);
@@ -97,6 +98,7 @@ pub fn main() !void {
     const pinUvAuthProtocol, const token = try client.pinUvAuthToken(
         device,
         allocator,
+        init.io,
         info,
         .{
             .permissions = .{

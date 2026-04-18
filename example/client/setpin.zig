@@ -8,19 +8,19 @@ const std = @import("std");
 const client = @import("client");
 
 // Allocator to be used for allocating dynamic memory.
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = std.heap.DebugAllocator(.{}){};
 var allocator = gpa.allocator();
 
-// Buffered stdout (don't forget to flush!).
-var stdout_buffer: [1024]u8 = undefined;
-var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-const stdout = &stdout_writer.interface;
-
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     defer _ = gpa.detectLeaks();
 
-    const argv = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, argv);
+    // Buffered stdout (don't forget to flush!).
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    const argv = try init.minimal.args.toSlice(allocator);
+    defer allocator.free(argv);
 
     if (argv.len < 3) {
         try stdout.print(
@@ -40,6 +40,7 @@ pub fn main() !void {
     // First, obtain a list of available authenticators.
     var transports = try client.Transports.enumerate(
         allocator,
+        init.io,
         .{},
     );
     defer transports.deinit();
@@ -72,7 +73,7 @@ pub fn main() !void {
     // Now lets get some information about the authenticator.
     // In this case we're going to use a blocking operation that waits for
     // the result.
-    var info_state = try (try client.getInfo(device, .{})).await(allocator);
+    var info_state = try (try client.getInfo(device, init.io, .{})).await(allocator, init.io);
     defer info_state.deinit(allocator);
     // We then have to deserialize the returned CBOR data.
     const info = try info_state.deserializeCbor(client.Info, allocator);
@@ -103,6 +104,7 @@ pub fn main() !void {
         device,
         pinUvAuthProtocol,
         allocator,
+        init.io,
     );
 
     // Change an existing PIN
@@ -118,12 +120,13 @@ pub fn main() !void {
             curPin.?,
             newPin,
             allocator,
+            init.io,
         ) catch |e| {
             std.log.err("failed to change pin: {any}", .{e});
             return;
         };
 
-        var cp_state = try cpr.await(allocator);
+        var cp_state = try cpr.await(allocator, init.io);
         defer cp_state.deinit(allocator);
 
         switch (cp_state) {
@@ -145,6 +148,7 @@ pub fn main() !void {
             &shared_secret,
             newPin,
             allocator,
+            init.io,
         ) catch |e| {
             std.log.err("failed to set pin: {any}", .{e});
             return;

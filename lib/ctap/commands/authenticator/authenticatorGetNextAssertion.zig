@@ -16,6 +16,7 @@ pub fn authenticatorGetNextAssertion(
     // Validate
     // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+    // TODO: hardcoded?
     const seconds_30 = 30000;
 
     if (auth.getAssertion == null) {
@@ -27,7 +28,7 @@ pub fn authenticatorGetNextAssertion(
         return .ctap2_err_not_allowed;
     }
 
-    if (auth.milliTimestamp() - auth.getAssertion.?.ts > seconds_30) {
+    if (auth.getAssertion.?.ts.untilNow(auth.io, .real).toMilliseconds() > seconds_30) {
         auth.getAssertion = null;
         return .ctap2_err_not_allowed;
     }

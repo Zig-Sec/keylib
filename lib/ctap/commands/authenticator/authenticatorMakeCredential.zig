@@ -362,8 +362,11 @@ pub fn authenticatorMakeCredential(
                         var k1: [32]u8 = undefined;
                         var k2: [32]u8 = undefined;
 
-                        auth.random.bytes(&k1);
-                        auth.random.bytes(&k2);
+                        // TODO
+                        // we should probably replace this with random secure
+                        // in the future. But random also uses a CSPRNG by default.
+                        auth.io.random(&k1);
+                        auth.io.random(&k2);
 
                         new_hms = .{ k1, k2 };
 
@@ -379,15 +382,12 @@ pub fn authenticatorMakeCredential(
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     // 16. Create a new credential
     // ++++++++++++++++++++++++++++++++++++++++++++++++
-    const id = uuid.v7.new2(auth.random, auth.milliTimestamp);
+    const id = uuid.v7.new(auth.io);
     const urn = uuid.urn.serialize(id);
 
-    const key_pair = if (alg.create(
-        auth.random,
-    )) |kp| kp else {
-        std.log.err("MakeCredential: unable to generate credential for alg = {any}", .{alg.alg});
-        return fido.ctap.StatusCodes.ctap1_err_other;
-    };
+    const key_pair = alg.generate(
+        auth.io,
+    );
 
     var entry = fido.ctap.authenticator.Credential{
         .id = (dt.ABS64B.fromSlice(&urn) catch unreachable).?,
@@ -395,7 +395,7 @@ pub fn authenticatorMakeCredential(
         .rp = mcp.rp,
         .sign_count = 0, // the first signature will be included in the response
         .key = key_pair,
-        .created = auth.milliTimestamp(),
+        .created = std.Io.Timestamp.now(auth.io, .real).toMilliseconds(),
         // the credential might be backed up [Y/n]
         .be = auth.general_backup_eligibility,
         // We just created the credential, i.e. it hasn't been backed up yet

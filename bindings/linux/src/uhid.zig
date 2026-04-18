@@ -13,48 +13,50 @@ const uhid_write = common.uhid_write;
 const destroy = common.destroy;
 
 pub const Uhid = struct {
-    device: std.fs.File,
+    device: std.Io.File,
+    io: std.Io,
 
-    pub fn open() !@This() {
-        var device = std.fs.openFileAbsolute(PATH, .{
+    pub fn open(io: std.Io, device_name: []const u8) !@This() {
+        var device = std.Io.Dir.openFileAbsolute(io, PATH, .{
             .mode = .read_write,
         }) catch |e| {
             std.log.err("Can't open uhid-cdev {s}\n", .{PATH});
             return e;
         };
+        errdefer device.close(io);
 
-        const flags = std.posix.fcntl(device.handle, 3, 0) catch |e| {
+        const flags = std.c.fcntl(device.handle, 3, @as(c_int, @intCast(0)));
+        if (flags < 0) {
             std.log.err("Can't get file stats", .{});
-            device.close();
-            return e;
-        };
-        _ = std.posix.fcntl(device.handle, 4, flags | 2048) catch |e| {
+            return error.GetFlags;
+        }
+        const ret = std.c.fcntl(device.handle, 4, flags | 2048);
+        if (ret < 0) {
             std.log.err("Can't set file to non-blocking", .{});
-            device.close();
-            return e;
-        };
+            return error.SetFlags;
+        }
 
-        create(device) catch |e| {
+        create(device, io, device_name) catch |e| {
             std.log.err("Unabel to create CTAPHID device", .{});
-            device.close();
             return e;
         };
 
         return .{
             .device = device,
+            .io = io,
         };
     }
 
     pub fn close(self: *const @This()) void {
-        destroy(self.device) catch {
+        destroy(self.device, self.io) catch {
             std.log.err("Unabel to destroy UHID device", .{});
         };
-        self.device.close();
+        self.device.close(self.io);
     }
 
     pub fn read(self: *const @This(), out: *[64]u8) ?[]u8 {
         var event = std.mem.zeroes(uhid.uhid_event);
-        _ = self.device.read(std.mem.asBytes(&event)) catch {
+        _ = self.device.readStreaming(self.io, &.{std.mem.asBytes(&event)}) catch {
             return null;
         };
 
@@ -76,7 +78,7 @@ pub const Uhid = struct {
         @memcpy(rev.u.input.data[0..in.len], in[0..]);
         rev.u.input.size = @as(c_ushort, @intCast(in.len));
 
-        uhid_write(self.device, @ptrCast(&rev)) catch |e| {
+        uhid_write(self.device, self.io, @ptrCast(&rev)) catch |e| {
             std.log.err("failed to send CTAPHID packet\n", .{});
             return e;
         };

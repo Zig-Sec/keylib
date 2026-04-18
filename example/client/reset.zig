@@ -9,19 +9,19 @@ const std = @import("std");
 const client = @import("client");
 
 // Allocator to be used for allocating dynamic memory.
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = std.heap.DebugAllocator(.{}){};
 var allocator = gpa.allocator();
 
-// Buffered stdout (don't forget to flush!).
-var stdout_buffer: [1024]u8 = undefined;
-var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-const stdout = &stdout_writer.interface;
-
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     defer _ = gpa.detectLeaks();
 
-    const argv = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, argv);
+    // Buffered stdout (don't forget to flush!).
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    const argv = try init.minimal.args.toSlice(allocator);
+    defer allocator.free(argv);
 
     if (argv.len < 2) {
         try stdout.print("usage: reset <device>\n", .{});
@@ -34,6 +34,7 @@ pub fn main() !void {
     // First, obtain a list of available authenticators.
     var transports = try client.Transports.enumerate(
         allocator,
+        init.io,
         .{},
     );
     defer transports.deinit();
@@ -69,7 +70,7 @@ pub fn main() !void {
     //
     // This should be done within the first 10 seconds of powering
     // the authenticator and is a destructive operation.
-    var promise = try client.reset(device, .{});
+    var promise = try client.reset(device, init.io, .{});
 
     // All commands return a "Promise", i.e. a data structure
     // that can represent different states. Usually, the initial
@@ -78,7 +79,7 @@ pub fn main() !void {
     // to 'fulfilled'. On error, the promise state switches to
     // 'rejected'.
     while (true) {
-        const state = promise.get(allocator);
+        const state = promise.get(allocator, init.io);
         defer state.deinit(allocator);
 
         switch (state) {
