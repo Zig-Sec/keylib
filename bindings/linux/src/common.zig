@@ -5,9 +5,7 @@ const uhid = @cImport(
     @cInclude("linux/uhid.h"),
 );
 
-pub fn create(fd: std.fs.File) !void {
-    const device_name = "fido2-device";
-
+pub fn create(fd: std.Io.File, io: std.Io, device_name: []const u8) !void {
     var event = std.mem.zeroes(uhid.uhid_event);
     event.type = uhid.UHID_CREATE2;
     @memcpy(event.u.create2.name[0..device_name.len], device_name);
@@ -22,18 +20,18 @@ pub fn create(fd: std.fs.File) !void {
     event.u.create2.version = 0;
     event.u.create2.country = 0;
 
-    try uhid_write(fd, &event);
+    try uhid_write(fd, io, &event);
 }
 
-pub fn uhid_write(fd: std.fs.File, event: *uhid.uhid_event) !void {
-    fd.writeAll(std.mem.asBytes(event)) catch |e| {
+pub fn uhid_write(fd: std.Io.File, io: std.Io, event: *uhid.uhid_event) !void {
+    fd.writeStreamingAll(io, std.mem.asBytes(event)) catch |e| {
         std.log.err("Error writing to uhid: {}\n", .{e});
         return e;
     };
 }
 
-pub fn destroy(fd: std.fs.File) !void {
+pub fn destroy(fd: std.Io.File, io: std.Io) !void {
     var event = std.mem.zeroes(uhid.uhid_event);
     event.type = uhid.UHID_DESTROY;
-    return uhid_write(fd, &event);
+    return uhid_write(fd, io, &event);
 }

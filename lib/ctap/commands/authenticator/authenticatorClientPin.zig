@@ -270,7 +270,7 @@ pub fn authenticatorClientPin(
             }
 
             auth.token.resetPinUvAuthToken(); // invalidates existing tokens
-            auth.token.beginUsingPinUvAuthToken(user_present, auth.milliTimestamp());
+            auth.token.beginUsingPinUvAuthToken(user_present, std.Io.Timestamp.now(auth.io, .real));
 
             auth.token.permissions = client_pin_param.permissions.?;
 
@@ -418,7 +418,7 @@ pub fn authenticatorClientPin(
             // 14. Call beginUsingPinUvAuthToken(userIsPresent: false).
             auth.token.beginUsingPinUvAuthToken(
                 false,
-                auth.milliTimestamp(),
+                std.Io.Timestamp.now(auth.io, .real),
             );
 
             // 15. Assign the requested permissions to the pinUvAuthToken,

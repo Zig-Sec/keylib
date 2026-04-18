@@ -25,10 +25,12 @@ const cbor = @import("zbor");
 const uhid = @import("uhid");
 const dt = keylib.common.dt;
 
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = std.heap.DebugAllocator(.{}){};
 const allocator = gpa.allocator();
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    defer _ = gpa.detectLeaks();
+
     //// a static credential to work with
     //try data_set.append(.{
     //    .id = "\xb4\x40\xa4\xed\x80\x92\xe6\x9b\x19\x25\x2d\x25\x84\xc2\xa4\xce\x56\x38\x66\xd6\x4d\xb3\x13\x4e\x48\xd6\x1b\xc2\xb9\x32\xae\x23",
@@ -92,16 +94,16 @@ pub fn main() !void {
         },
         // Here we initialize the pinUvAuth token data structure wich handles the generation
         // and management of pinUvAuthTokens.
-        .token = keylib.ctap.pinuv.PinUvAuth.v2(std.crypto.random),
+        .token = keylib.ctap.pinuv.PinUvAuth.v2(init.io),
         // Here we set the supported algorithm. You can also implement your
         // own and add them here.
         .algorithms = &.{
             keylib.ctap.crypto.algorithms.Es256,
         },
-        // A function to get the epoch time as i64.
-        .milliTimestamp = std.time.milliTimestamp,
-        // A cryptographically secure random number generator
-        .random = std.crypto.random,
+        // The Io interface provides the following:
+        // - Cryptographically Secure Pseudo Random Number Generator (CSPRNG)
+        // - Timestamps
+        .io = init.io,
         // If you don't want to increment the sign counts
         // of credentials (e.g. because you sync them between devices)
         // set this to true.
@@ -119,12 +121,12 @@ pub fn main() !void {
     try auth.init();
 
     // Here we instantiate a CTAPHID handler.
-    var ctaphid = keylib.ctap.transports.ctaphid.authenticator.CtapHid.init(allocator, std.crypto.random);
+    var ctaphid = keylib.ctap.transports.ctaphid.authenticator.CtapHid.init(allocator, init.io);
     defer ctaphid.deinit();
 
     // We use the uhid module on linux to simulate a USB device. If you use
     // tinyusb or something similar you have to adapt the code.
-    var u = uhid.Uhid.open() catch {
+    var u = uhid.Uhid.open(init.io, "FIDO2 keylib example authenticator") catch {
         std.log.err("{s}", .{uhid_error_message});
         return;
     };
@@ -162,8 +164,8 @@ pub fn main() !void {
                 }
             }
         }
-        var timer = try std.time.Timer.start();
-        while (timer.read() < 10000000) {}
+
+        init.io.sleep(std.Io.Duration.fromMilliseconds(25), .real) catch {};
     }
 }
 

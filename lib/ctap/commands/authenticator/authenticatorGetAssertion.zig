@@ -414,7 +414,7 @@ pub fn authenticatorGetAssertion(
     if (total_credentials > 1) {
         // This is important for authenticatorGetNextAssertion
         auth.getAssertion = .{
-            .ts = auth.milliTimestamp(),
+            .ts = std.Io.Timestamp.now(auth.io, .real),
             .total = total_credentials,
             .count = 1,
             .up = up_response,

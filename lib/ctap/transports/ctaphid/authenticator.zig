@@ -177,7 +177,7 @@ pub const CtapHid = struct {
     // Cid. `null` means not busy.
     busy: ?Cid = null,
     // Time in ms the initialization packet was received.
-    begin: ?i64 = null,
+    begin: ?std.Io.Timestamp = null,
     // Command to be executed.
     cmd: ?Cmd = null,
     // The ammount of expected data bytes (max is: 64 - 7 + 128 * (64 - 5) = 7609).
@@ -194,19 +194,18 @@ pub const CtapHid = struct {
 
     channels: std.ArrayListUnmanaged(Cid),
 
-    /// CSPRNG
-    random: std.Random,
-
-    milliTimestamp: *const fn () i64 = std.time.milliTimestamp,
+    /// Io interface for:
+    /// - CSPRNG
+    io: std.Io,
 
     allocator: std.mem.Allocator,
 
     const timeout: u64 = 250; // 250 milli second timeout
 
-    pub fn init(a: std.mem.Allocator, random: std.Random) @This() {
+    pub fn init(a: std.mem.Allocator, io: std.Io) @This() {
         return .{
             .channels = .empty,
-            .random = random,
+            .io = io,
             .allocator = a,
         };
     }
@@ -225,7 +224,12 @@ pub const CtapHid = struct {
             // Remove first entry inserted
             _ = self.channels.orderedRemove(0);
         }
-        const cid = self.random.int(u32);
+
+        const rng_impl = std.Random.IoSource{ .io = self.io };
+        const rng = rng_impl.interface();
+
+        const cid = rng.int(u32);
+
         self.channels.append(self.allocator, cid) catch |e| {
             std.log.err("unable to allocate memory for CID {d}", .{cid});
             return e;
@@ -242,7 +246,7 @@ pub const CtapHid = struct {
 
     pub fn handle(self: *@This(), packet: []const u8) ?CtapHidMsg {
         //std.log.err("{s}", .{std.fmt.fmtSliceHexLower(packet)});
-        if (self.begin != null and (self.milliTimestamp() - self.begin.?) > CtapHid.timeout) {
+        if (self.begin != null and self.begin.?.untilNow(self.io, .real).toMilliseconds() > CtapHid.timeout) {
             // the previous transaction has timed out -> reset
             self.reset();
         }
@@ -256,7 +260,7 @@ pub const CtapHid = struct {
             }
 
             self.busy = misc.sliceToInt(Cid, packet[0..4]);
-            self.begin = self.milliTimestamp();
+            self.begin = std.Io.Timestamp.now(self.io, .real);
 
             if (!isBroadcast(self.busy.?) and !self.isValidChannel(self.busy.?)) {
                 return self.@"error"(ErrorCodes.invalid_channel);

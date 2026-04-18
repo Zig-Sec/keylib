@@ -27,7 +27,7 @@ user_verified: bool = false,
 user_present: bool = false,
 /// The time in ms `beginUsingPinUvAuthToken` was called.
 /// Reference point to check if a time limit has been reached.
-usage_timer: ?i64 = null,
+usage_timer: ?std.Io.Timestamp = null,
 /// Token has been used at least once
 used: bool = false,
 pinRetries: u8 = 8,
@@ -40,7 +40,7 @@ authenticator_key_agreement_key: ?fido.ctap.crypto.dh.EcdhP256.KeyPair = null,
 /// (AES block length).
 pin_token: [32]u8 = undefined,
 
-rand: std.Random,
+io: std.Io,
 
 version: fido.ctap.pinuv.common.PinProtocol,
 // ++++++++++++++++++++++++++++++++++++++++
@@ -61,10 +61,10 @@ pub fn setRpId(self: *@This(), id: []const u8) !void {
 }
 
 /// Create a new pinUvAuth token version 1 object
-pub fn v1(rand: std.Random) @This() {
+pub fn v1(io: std.Io) @This() {
     return @This(){
         .version = .V1,
-        .rand = rand,
+        .io = io,
         .kdf = kdf_v1,
         .encrypt = encrypt_v1,
         .decrypt = decrypt_v1,
@@ -74,10 +74,10 @@ pub fn v1(rand: std.Random) @This() {
 }
 
 /// Create a new pinUvAuth token version 2 object
-pub fn v2(rand: std.Random) @This() {
+pub fn v2(io: std.Io) @This() {
     return @This(){
         .version = .V2,
-        .rand = rand,
+        .io = io,
         .kdf = kdf_v2,
         .encrypt = encrypt_v2,
         .decrypt = decrypt_v2,
@@ -140,7 +140,7 @@ pub fn performBuiltInUv(
 /// This function prepares the pinUvAuthToken for use by the platform, which has
 /// invoked one of the pinUvAuthToken-issuing operations, by setting particular
 /// pinUvAuthToken state variables to given use-case-specific values.
-pub fn beginUsingPinUvAuthToken(self: *@This(), user_is_present: bool, start: i64) void {
+pub fn beginUsingPinUvAuthToken(self: *@This(), user_is_present: bool, start: std.Io.Timestamp) void {
     self.user_present = user_is_present;
     self.user_verified = true;
     self.initial_usage_time_limit = 19000; // 19 s = 19000 ms
@@ -152,18 +152,19 @@ pub fn beginUsingPinUvAuthToken(self: *@This(), user_is_present: bool, start: i6
 }
 
 /// Observes the pinUvAuthToken usage timer and takes appropriate action.
-pub fn pinUvAuthTokenUsageTimerObserver(self: *@This(), time_ms: i64) void {
+pub fn pinUvAuthTokenUsageTimerObserver(self: *@This(), ts: std.Io.Timestamp) void {
     if (self.usage_timer == null) return;
-    const delta = time_ms - self.usage_timer.?;
+    const delta = self.usage_timer.?.durationTo(ts);
+    const dms = delta.toMilliseconds();
 
-    if (delta > self.user_present_time_limit) {
+    if (dms > self.user_present_time_limit) {
         // current user present time limit is reached
         if (self.in_use) self.user_present = false;
     }
 
     // If the initial usage time limit is reached without the platform using the pinUvAuthToken
     // in an authenticator operation then call stopUsingPinUvAuthToken(), and terminate these steps.
-    if ((delta > self.initial_usage_time_limit and !self.used) or delta > self.max_usage_time_period) {
+    if ((dms > self.initial_usage_time_limit and !self.used) or dms > self.max_usage_time_period) {
         self.stopUsingPinUvAuthToken();
         return;
     }
@@ -205,7 +206,11 @@ pub fn initialize(self: *@This()) void {
 /// Generate a fresh, random P-256 private key, x.
 pub fn regenerate(self: *@This()) void {
     var seed: [EcdhP256.secret_length]u8 = undefined;
-    self.rand.bytes(seed[0..]);
+    // TODO
+    // We use random for now as it uses a CSPRNG by default BUT may
+    // fall back to another, less secure RNG. This has to be updated
+    // in the future.
+    self.io.random(seed[0..]);
 
     self.authenticator_key_agreement_key = EcdhP256.KeyPair.create(seed) catch unreachable;
     self.pin_token = undefined;
@@ -213,7 +218,10 @@ pub fn regenerate(self: *@This()) void {
 
 /// Generate a fresh 32 bytes pinUvAuthToken.
 pub fn resetPinUvAuthToken(self: *@This()) void {
-    self.rand.bytes(self.pin_token[0..]);
+    // TODO: maybe replace this with randomSecure in the future.
+    // random also uses a CSPRNG by default but falls back
+    // to other RNGs if no CSPRNG is available.
+    self.io.random(self.pin_token[0..]);
 }
 
 pub fn getUserVerifiedFlagValue(self: *@This()) bool {
@@ -352,7 +360,10 @@ pub fn encrypt_v2(
     demPlaintext: []const u8,
 ) void {
     var iv: [16]u8 = undefined;
-    self.rand.bytes(iv[0..]);
+    // TODO: maybe replace this with randomSecure in the future.
+    // random also uses a CSPRNG by default but falls back
+    // to other RNGs if no CSPRNG is available.
+    self.io.random(iv[0..]);
     @memcpy(out[0..16], iv[0..]);
     _encrypt(iv, key[32..64].*, out[16..], demPlaintext);
 }

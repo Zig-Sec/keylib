@@ -79,7 +79,7 @@ pub const Auth = struct {
     constSignCount: bool = false,
 
     getAssertion: ?struct {
-        ts: i64,
+        ts: std.Io.Timestamp,
         count: usize,
         total: usize,
         up: bool,
@@ -111,12 +111,12 @@ pub const Auth = struct {
     ///
     general_backup_eligibility: bool = false,
 
-    /// Cryptographic secure (P)RNG
-    random: std.Random,
+    /// Io interface for:
+    /// - CSPRNG
+    /// - Timestamp
+    io: std.Io,
 
-    milliTimestamp: *const fn () i64,
-
-    pub fn default(callbacks: Callbacks) @This() {
+    pub fn default(callbacks: Callbacks, io: std.Io) @This() {
         return .{
             .callbacks = callbacks,
             .settings = .{
@@ -144,8 +144,7 @@ pub const Auth = struct {
             .algorithms = &.{
                 fido.ctap.crypto.algorithms.Es256,
             },
-            .milliTimestamp = std.time.milliTimestamp,
-            .random = std.crypto.random,
+            .io = io,
         };
     }
 
@@ -180,7 +179,7 @@ pub const Auth = struct {
 
         // Updates (and possibly invalidates) an existing pinUvAuth token. This has to
         // be done before handling any request.
-        self.token.pinUvAuthTokenUsageTimerObserver(self.milliTimestamp());
+        self.token.pinUvAuthTokenUsageTimerObserver(std.Io.Timestamp.now(self.io, .real));
 
         if (request.len > 1) {
             std.log.info("request({d}): {x}", .{ cmd, request[1..] });
