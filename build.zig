@@ -101,6 +101,7 @@ pub fn build(b: *std.Build) !void {
         .{ "example/client/enumcred.zig", "enumcred" },
         .{ "example/client/delete.zig", "delete" },
         .{ "example/client/assert.zig", "assert" },
+        .{ "example/web/py_webauthn/client/main.zig", "py_webauthn_client" },
     };
 
     for (client_examples) |entry| {

@@ -1,0 +1,22 @@
+DROP TABLE IF EXISTS passkey;
+DROP TABLE IF EXISTS user;
+DROP TABLE IF EXISTS register;
+
+CREATE TABLE user (
+    id BLOB PRIMARY KEY,
+    username VARCHAR UNIQUE NOT NULL
+);
+
+CREATE TABLE passkey (
+    id BLOB PRIMARY KEY,
+    key VARCHAR NOT NULL,
+    signCount INTEGER NOT NULL,
+    userId BLOB NOT NULL,
+    FOREIGN KEY (userId) REFERENCES user (id)
+);
+
+CREATE TABLE register (
+    id BLOB PRIMARY KEY,
+    challenge BLOB NOT NULL,
+    username VARCHAR UNIQUE NOT NULL
+);
