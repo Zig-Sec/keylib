@@ -26,3 +26,4 @@ uhidmodule.c
 
 .venv
 venv
+__pycache__
