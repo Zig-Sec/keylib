@@ -179,6 +179,11 @@ pub fn main(init: std.process.Init) !void {
         allocator,
         "webauthn.create",
         &challenge,
+        // as we "just" create the credential locally, we use
+        // the rpId as origin but usually the origin and rpId
+        // are two distinct but related values, e.g. for Github
+        // the origin would probably 'https://github.com' while
+        // the rpId would be 'github.com'.
         origin,
         crossOrigin,
     );
