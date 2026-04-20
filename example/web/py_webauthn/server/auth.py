@@ -67,7 +67,10 @@ def register_begin():
             rp_name=current_app.config['RP_NAME'],
             user_name=username,
             user_id=uid,
-            challenge=challenge
+            challenge=challenge,
+            authenticator_selection=AuthenticatorSelectionCriteria(
+                resident_key=ResidentKeyRequirement.REQUIRED,
+            ),
         )
 
         return options_to_json(registration_options)

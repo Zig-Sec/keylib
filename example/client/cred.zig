@@ -180,7 +180,7 @@ pub fn main(init: std.process.Init) !void {
         "webauthn.create",
         &challenge,
         origin,
-        false,
+        crossOrigin,
     );
     defer allocator.free(clientData);
 

@@ -27,3 +27,5 @@ uhidmodule.c
 .venv
 venv
 __pycache__
+
+*.duckdb

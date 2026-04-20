@@ -67,7 +67,7 @@ pub fn clientDataAlloc(
     crossOrigin: bool,
 ) ![]const u8 {
     // The challenge is base64 encoded before being integrated into the client data
-    const Base64 = std.base64.url_safe.Encoder;
+    const Base64 = std.base64.url_safe_no_pad.Encoder;
     const c = try a.alloc(u8, Base64.calcSize(challenge.len));
     defer a.free(c);
     _ = Base64.encode(c, challenge);
