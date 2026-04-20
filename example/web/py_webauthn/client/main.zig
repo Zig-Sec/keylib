@@ -304,6 +304,7 @@ fn make_credential(
             .userId = uid,
             .userName = options.user.name,
             .userDisplayName = options.user.displayName,
+            .type = options.pubKeyCredParams[0..6], // TODO: handle limitation above
             .rk = rk,
         },
     );
@@ -334,7 +335,7 @@ fn make_credential(
     };
     defer mc_response.deinit(allocator);
 
-    std.log.info("{any}", .{mc_response});
+    std.log.info("attestationObject: {any}", .{mc_response});
 }
 
 const RegistrationData = struct {

@@ -201,6 +201,7 @@ pub fn main(init: std.process.Init) !void {
             .crossOrigin = crossOrigin,
             .userId = user_id,
             .rk = rk,
+            .type = &.{typ},
         },
     );
 

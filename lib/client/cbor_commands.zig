@@ -343,10 +343,10 @@ pub const credentials = struct {
             rk: ?bool = null,
             uv: bool = false,
             hms: bool = false,
-            type: keylib.common.PublicKeyCredentialParameters = .{
+            type: []const keylib.common.PublicKeyCredentialParameters = &.{.{
                 .alg = .Es256,
                 .type = .@"public-key",
-            },
+            }},
             timeout: i64 = 30000,
         },
     ) !Promise {
@@ -375,7 +375,7 @@ pub const credentials = struct {
             .clientDataHash = client_data_hash,
             .rp = rp,
             .user = user,
-            .pubKeyCredParams = (try keylib.common.dt.ABSPublicKeyCredentialParameters.fromSlice(&.{params.type})).?,
+            .pubKeyCredParams = (try keylib.common.dt.ABSPublicKeyCredentialParameters.fromSlice(params.type)).?,
             .options = .{
                 .rk = params.rk,
                 .up = null,
