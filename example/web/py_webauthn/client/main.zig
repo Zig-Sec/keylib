@@ -158,7 +158,7 @@ fn make_credential(
     // Next we have to decode the options send by the server.
     // --------------------------------------------------------------
 
-    const options = try client.web.Create.fromJsonAlloc(
+    const options = try client.web.create.Request.fromJsonAlloc(
         allocator,
         result_body.written(),
     );
@@ -321,21 +321,45 @@ fn make_credential(
                     .waiting => std.log.info("waiting", .{}),
                 }
             },
-            .fulfilled => {
-                //std.debug.print("response: {x}", .{state.fulfilled});
-                break :outer try state.deserializeCbor(
-                    client.MakeCredentialResponse,
-                    allocator,
-                );
+            .fulfilled => |v| {
+                break :outer try allocator.dupe(u8, v);
             },
             .rejected => |e| {
                 return e;
             },
         }
     };
-    defer mc_response.deinit(allocator);
+    defer allocator.free(mc_response);
 
-    std.log.info("attestationObject: {any}", .{mc_response});
+    std.log.info("attestationObject: {x}", .{mc_response});
+
+    // ============================================
+    // Build and send the response
+    // ============================================
+
+    const response = try client.web.create.Response.new(
+        mc_response,
+        clientData,
+        if (info.transports) |t| t else &.{},
+        allocator,
+    );
+    defer response.deinit(allocator);
+
+    const response_json = try response.toJsonAlloc(allocator);
+    defer allocator.free(response_json);
+
+    std.log.info("response: {s}", .{response_json});
+
+    //var result_body2 = std.Io.Writer.Allocating.init(allocator);
+    //defer result_body2.deinit();
+
+    //_ = try http_client.fetch(.{
+    //    .location = .{ .url = url },
+    //    .method = .POST,
+    //    .extra_headers = headers,
+    //    .payload = jregdata.written(),
+    //    .response_writer = &result_body.writer,
+    //});
 }
 
 const RegistrationData = struct {
