@@ -79,6 +79,7 @@ def register_begin():
 @bp.route("/register/complete/<username>", methods=["POST"])
 def register_complete(username):
     if request.method == "POST":
+        print(f"\n[Complete Registration for {username}]")
 
         con = get_db()
         con.execute("SELECT * from register WHERE username = ?", [username])
@@ -90,18 +91,23 @@ def register_complete(username):
             return {}
 
         response = request.json
+        print("\n[Response from Client]")
         print(response)
+        
+        try:
+            registration_verification = verify_registration_response(
+                # The resposne is a json object as returned by 
+                credential=response,
+                expected_challenge=r[1],
+                expected_origin="http://localhost:5000",
+                expected_rp_id=current_app.config['RP_ID'],
+                require_user_verification=True,
+            )
+        except e:
+            print(f"\n[Verification Failed: {str(e)}]")
+            return { "type": "error", "msg": f"{str(e)}" } 
 
-        registration_verification = verify_registration_response(
-            # Demonstrating the ability to handle a plain dict version of the WebAuthn response
-            credential=response,
-            expected_challenge=r[1],
-            expected_origin="http://localhost:5000",
-            expected_rp_id=current_app.config['RP_ID'],
-            require_user_verification=True,
-        )
-
-        print("\n[Registration Verification - None]")
+        print("\n[Registration Verification]")
         print(registration_verification)
 
     return {}
