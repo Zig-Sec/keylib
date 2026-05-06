@@ -76,6 +76,32 @@ def register_begin():
         return options_to_json(registration_options)
 
 
-@bp.route("/register/complete", methods=["POST"])
-def register_complete():
+@bp.route("/register/complete/<username>", methods=["POST"])
+def register_complete(username):
+    if request.method == "POST":
+
+        con = get_db()
+        con.execute("SELECT * from register WHERE username = ?", [username])
+        r = con.fetchone()
+        print(r)
+
+        if r is None:
+            print("no such user")
+            return {}
+
+        response = request.json
+        print(response)
+
+        registration_verification = verify_registration_response(
+            # Demonstrating the ability to handle a plain dict version of the WebAuthn response
+            credential=response,
+            expected_challenge=r[1],
+            expected_origin="http://localhost:5000",
+            expected_rp_id=current_app.config['RP_ID'],
+            require_user_verification=True,
+        )
+
+        print("\n[Registration Verification - None]")
+        print(registration_verification)
+
     return {}

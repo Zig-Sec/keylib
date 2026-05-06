@@ -1,12 +1,20 @@
 const std = @import("std");
 const keylib = @import("keylib");
+const cbor = @import("zbor");
 const client = @import("client.zig");
 
 pub const create = struct {
     pub const Response = struct {
-        attestationObject: []const u8,
-        clientDataJSON: []const u8,
-        transports: []const []const u8,
+        id: []const u8,
+        rawId: []const u8,
+        response: struct {
+            attestationObject: []const u8,
+            clientDataJSON: []const u8,
+            transports: []const []const u8,
+        },
+        type: []const u8, // "public-key"
+        clientExtensionResults: struct {} = .{}, // TODO
+        authenticatorAttachment: client.AuthenticatorAttachment,
 
         pub fn new(
             /// CBOR response from calling `authenticatorMakeCredential`
@@ -15,13 +23,40 @@ pub const create = struct {
             clientDataJson: []const u8,
             /// Authenticator transports suported by the authenticator
             transports: []const keylib.common.AuthenticatorTransports,
+            /// The attchment of the authenticator used to create the attestation
+            authenticatorAttachment: client.AuthenticatorAttachment,
             allocator: std.mem.Allocator,
         ) !@This() {
             const base64 = std.base64.url_safe_no_pad.Encoder;
 
-            var l = base64.calcSize(attestationObject.len);
-            const ao = try allocator.alloc(u8, l);
-            _ = base64.encode(ao, attestationObject);
+            // Translate attestation object BEGIN
+
+            const ao_ = try cbor.parse(
+                client.MakeCredentialResponse,
+                try cbor.DataItem.new(attestationObject),
+                .{ .allocator = allocator },
+            );
+            defer ao_.deinit(allocator);
+
+            if (ao_.authData.extensions) |extensions| {
+                _ = extensions; // TODO
+            }
+
+            const ao = try ao_.toAttestationObject(allocator);
+            defer allocator.free(ao);
+
+            // Translate attestation object END
+
+            const credId = try allocator.dupe(u8, ao_.authData.getCredId() orelse return error.MissingCredId);
+            defer allocator.free(credId);
+
+            var l = base64.calcSize(credId.len);
+            const b64CredId = try allocator.alloc(u8, l);
+            _ = base64.encode(b64CredId, credId);
+
+            l = base64.calcSize(ao.len);
+            const b64ao = try allocator.alloc(u8, l);
+            _ = base64.encode(b64ao, ao);
 
             l = base64.calcSize(clientDataJson.len);
             const cdj = try allocator.alloc(u8, l);
@@ -40,17 +75,26 @@ pub const create = struct {
             }
 
             return .{
-                .attestationObject = ao,
-                .clientDataJSON = cdj,
-                .transports = try t.toOwnedSlice(allocator),
+                .id = b64CredId,
+                .rawId = try allocator.dupe(u8, b64CredId),
+                .response = .{
+                    .attestationObject = b64ao,
+                    .clientDataJSON = cdj,
+                    .transports = try t.toOwnedSlice(allocator),
+                },
+                .type = try allocator.dupe(u8, "public-key"),
+                .authenticatorAttachment = authenticatorAttachment,
             };
         }
 
         pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
-            allocator.free(self.attestationObject);
-            allocator.free(self.clientDataJSON);
-            for (self.transports) |t| allocator.free(t);
-            allocator.free(self.transports);
+            allocator.free(self.id);
+            allocator.free(self.rawId);
+            allocator.free(self.response.attestationObject);
+            allocator.free(self.response.clientDataJSON);
+            for (self.response.transports) |t| allocator.free(t);
+            allocator.free(self.response.transports);
+            allocator.free(self.type);
         }
 
         pub fn toJsonAlloc(

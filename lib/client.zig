@@ -84,6 +84,15 @@ pub fn clientDataAlloc(
 
 pub const clientDataHash = cbor_commands.credentials.clientDataHash;
 
+/// This enumeration’s values describe authenticators' attachment modalities.
+/// Relying Parties use this to express a preferred authenticator attachment
+/// modality when calling navigator.credentials.create() to create a credential.
+pub const AuthenticatorAttachment = enum {
+    // https://www.w3.org/TR/webauthn-2/#enumdef-authenticatorattachment
+    platform,
+    @"cross-platform",
+};
+
 /// Code base that mimics the following browser interfaces for
 /// passkeys:
 /// - `navigator.credentials.create`

@@ -2,6 +2,9 @@
 //! server using `py_webauthn` for creating registration options and
 //! response validation.
 //!
+//! Registration and authentication should only be done through a secure
+//! channel (e.g., via TLS).
+//!
 //! Copyright (c) 2022 - 2026 David P. Sugar.
 //! Use of this source code is governed by the MIT license.
 const std = @import("std");
@@ -34,6 +37,8 @@ pub fn main(init: std.process.Init) !void {
         \\--help                 Display this help and exit.
         \\--cmd <str>            "register" or "authenticate"
         \\--url <str>            URL
+        \\--epbegin <str>        End point for starting the ceremony
+        \\--epend <str>          End point for ending the ceremony
         \\--username <str>       Username
         \\-p <str>               Specify a PIN for authentication
         \\
@@ -63,6 +68,18 @@ pub fn main(init: std.process.Init) !void {
     };
     std.log.info("url: {s}", .{url});
 
+    const begin = res.args.epbegin orelse {
+        try stdout.print("missing 'epbegin' option\n", .{});
+        try stdout.flush();
+        return;
+    };
+
+    const end = res.args.epend orelse {
+        try stdout.print("missing 'epend' option\n", .{});
+        try stdout.flush();
+        return;
+    };
+
     const pin = res.args.p orelse {
         try stdout.print("missing 'p' option\n", .{});
         try stdout.flush();
@@ -91,6 +108,8 @@ pub fn main(init: std.process.Init) !void {
                 init.io,
                 &http_client,
                 url,
+                begin,
+                end,
                 pin,
                 username,
                 stdin,
@@ -116,6 +135,8 @@ fn make_credential(
     io: std.Io,
     http_client: *std.http.Client,
     url: []const u8,
+    begin: []const u8,
+    end: []const u8,
     pin: []const u8,
     username: []const u8,
     stdin: *std.Io.Reader,
@@ -125,6 +146,11 @@ fn make_credential(
     // The options are JSON encoded and align with the options one
     // would pass the `navigator.credentials.create`
     // --------------------------------------------------------------
+
+    const url_begin = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ url, begin });
+    defer allocator.free(url_begin);
+    const url_end = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ url, end });
+    defer allocator.free(url_end);
 
     const origin = try originFromUrl(url);
     std.log.info("origin: {s}", .{origin});
@@ -146,7 +172,7 @@ fn make_credential(
     defer result_body.deinit();
 
     _ = try http_client.fetch(.{
-        .location = .{ .url = url },
+        .location = .{ .url = url_begin },
         .method = .POST,
         .extra_headers = headers,
         .payload = jregdata.written(),
@@ -322,7 +348,7 @@ fn make_credential(
                 }
             },
             .fulfilled => |v| {
-                break :outer try allocator.dupe(u8, v);
+                break :outer try allocator.dupe(u8, v[1..]); // strip first byte
             },
             .rejected => |e| {
                 return e;
@@ -341,6 +367,7 @@ fn make_credential(
         mc_response,
         clientData,
         if (info.transports) |t| t else &.{},
+        .@"cross-platform",
         allocator,
     );
     defer response.deinit(allocator);
@@ -350,16 +377,21 @@ fn make_credential(
 
     std.log.info("response: {s}", .{response_json});
 
-    //var result_body2 = std.Io.Writer.Allocating.init(allocator);
-    //defer result_body2.deinit();
+    const url_with_username = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ url_end, options.user.name.? });
+    defer allocator.free(url_with_username);
 
-    //_ = try http_client.fetch(.{
-    //    .location = .{ .url = url },
-    //    .method = .POST,
-    //    .extra_headers = headers,
-    //    .payload = jregdata.written(),
-    //    .response_writer = &result_body.writer,
-    //});
+    var result_body2 = std.Io.Writer.Allocating.init(allocator);
+    defer result_body2.deinit();
+
+    const r = try http_client.fetch(.{
+        .location = .{ .url = url_with_username },
+        .method = .POST,
+        .extra_headers = headers,
+        .payload = response_json,
+        .response_writer = &result_body2.writer,
+    });
+
+    std.log.info("http status: {any}", .{r});
 }
 
 const RegistrationData = struct {

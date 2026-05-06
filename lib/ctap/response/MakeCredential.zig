@@ -59,6 +59,35 @@ pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
     self.attStmt.deinit(allocator);
 }
 
+pub fn toAttestationObject(
+    self: *const @This(),
+    allocator: std.mem.Allocator,
+) ![]const u8 {
+    const AO = struct {
+        fmt: AttestationStatementFormatIdentifiers,
+        attStmt: AttestationStatement,
+        authData: []const u8,
+    };
+
+    var out = std.Io.Writer.Allocating.init(allocator);
+    errdefer out.deinit();
+
+    // Encode authData which is not CBOR
+    const ad = try self.authData.encode();
+
+    try cbor.stringify(
+        AO{
+            .fmt = self.fmt,
+            .attStmt = self.attStmt,
+            .authData = ad.get(),
+        },
+        .{},
+        &out.writer,
+    );
+
+    return try out.toOwnedSlice();
+}
+
 pub fn cborStringify(self: *const @This(), _: cbor.Options, out: *std.Io.Writer) !void {
     const AO = struct {
         fmt: AttestationStatementFormatIdentifiers,

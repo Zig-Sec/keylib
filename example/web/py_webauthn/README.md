@@ -33,5 +33,5 @@ curl --request GET http://localhost:5000/auth/reset/register
 
 Register a new user
 ```
-./zig-out/bin/py_webauthn_client --cmd register --url http://127.0.0.1:5000/auth/register/begin --username franzi
+./zig-out/bin/py_webauthn_client --cmd register --url http://localhost:5000 --epbegin auth/register/begin --epend auth/register/complete -p 1234 --username franzi
 ```
