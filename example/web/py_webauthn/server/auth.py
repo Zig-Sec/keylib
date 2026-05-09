@@ -109,5 +109,11 @@ def register_complete(username):
 
         print("\n[Registration Verification]")
         print(registration_verification)
+        print("\n[Credential ID]")
+        print("".join("{:02x}".format(c) for c in registration_verification.credential_id))
+        print("\n[Public Key]")
+        print("".join("{:02x}".format(c) for c in registration_verification.credential_public_key))
+        print("\n[Sign Count]")
+        print(registration_verification.sign_count)
 
     return {}
