@@ -9,7 +9,7 @@ CREATE TABLE user (
 
 CREATE TABLE passkey (
     id BLOB PRIMARY KEY,
-    key VARCHAR NOT NULL,
+    key BLOB NOT NULL,
     signCount INTEGER NOT NULL,
     userId BLOB NOT NULL,
     FOREIGN KEY (userId) REFERENCES user (id)

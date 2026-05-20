@@ -46,11 +46,26 @@ def reset():
 def register_begin():
     if request.method == "POST":
         username = request.json.get("username", None)
-        
+
         if not username:
             return { "type": "error", "msg": "username missing" }
 
+        print(f"\n[Begin Registration for {username}]")        
+
         con = get_db()
+
+        # Check if a user with the given name already exists
+        # This could be used to bruteforce usernames, i.e., should
+        # at least be rate limited.
+
+        con.execute("SELECT * from user WHERE username = ?", [username])
+        r = con.fetchone()
+
+        if r is not None:
+            print(f"error: {username} does already exist")
+            return { "type": "error", "msg": f"bad request" }, 500
+    
+        # Create data for a new credential registration
 
         uid = secrets.token_bytes(64)
         challenge = secrets.token_bytes(32)
@@ -60,7 +75,8 @@ def register_begin():
                 uid, challenge, username 
             ])
         except duckdb.Error as error:
-            return { "type": "error", "msg": f"{str(error)}" } 
+            print(f"{str(error)}")
+            return { "type": "error", "msg": f"bad request" }, 500
 
         registration_options = generate_registration_options(
             rp_id=current_app.config['RP_ID'],
@@ -75,7 +91,6 @@ def register_begin():
 
         return options_to_json(registration_options)
 
-
 @bp.route("/register/complete/<username>", methods=["POST"])
 def register_complete(username):
     if request.method == "POST":
@@ -84,7 +99,9 @@ def register_complete(username):
         con = get_db()
         con.execute("SELECT * from register WHERE username = ?", [username])
         r = con.fetchone()
-        print(r)
+        print(f"fetch: {r}")
+        
+        delete_register_entry(con, r[0])
 
         if r is None:
             print("no such user")
@@ -116,4 +133,39 @@ def register_complete(username):
         print("\n[Sign Count]")
         print(registration_verification.sign_count)
 
+        try:
+            con.execute("INSERT OR IGNORE INTO user VALUES (?, ?)", [
+                r[0], username,
+            ])
+        except duckdb.Error as error:
+            print(f"error: creating user failed  {str(error)}")
+            return { "type": "error", "msg": f"bad request" }, 500
+
+        try:
+            con.execute("INSERT OR REPLACE INTO passkey VALUES (?, ?, ?, ?)", [
+                registration_verification.credential_id,
+                registration_verification.credential_public_key,
+                registration_verification.sign_count,
+                r[0],
+            ])
+        except duckdb.Error as error:
+            print(f"error: registering passkey failed {str(error)}")
+            return { "type": "error", "msg": f"bad request" }, 500
+
     return {}
+
+
+@bp.route("begin/<username>", methods=["POST"])
+def auth_begin(username):
+    if request.method == "POST":
+        print(f"\n[Begin Authentication for {username}]")
+
+        con = get_db()
+        con.execute("SELECT * from register WHERE username = ?", [username])
+        r = con.fetchone()
+        print(f"fetch: {r}")
+
+
+
+def delete_register_entry(con, id):
+    con.execute("DELETE FROM register WHERE id = ?;", [id])
