@@ -141,6 +141,7 @@ pub fn main(init: std.process.Init) !void {
         yubikey,
         allocator,
     );
+    defer if (user) |u| u.publicKey.deinit(allocator);
 
     if (user == null) {
         return;
@@ -151,16 +152,17 @@ pub fn main(init: std.process.Init) !void {
     try stdout.print("Credential (1)\n", .{});
     try stdout.print("  userId: {x}\n", .{user.?.user.id.get()});
     try stdout.print("  credId: {x}\n", .{user.?.credentialID.id.get()});
-    switch (user.?.publicKey) {
-        .P256 => |k| {
+    switch (user.?.publicKey.kty) {
+        .Ec2 => {
             // sec1 (https://www.secg.org/sec1-v2.pdf) 2.3.3
             // 04 || X || Y
             try stdout.print("  coseKey ({any}): 04{x}{x}\n", .{
-                k.alg,
-                &k.x,
-                &k.y,
+                user.?.publicKey.alg,
+                user.?.publicKey.x.?,
+                user.?.publicKey.y.?,
             });
         },
+        else => {},
     }
     try stdout.flush();
 
@@ -172,19 +174,22 @@ pub fn main(init: std.process.Init) !void {
                 yubikey,
                 allocator,
             )) |next_user| {
+                defer next_user.publicKey.deinit(allocator);
+
                 try stdout.print("Credential ({d})\n", .{i + 1});
                 try stdout.print("  userId: {x}\n", .{next_user.user.id.get()});
                 try stdout.print("  credId: {x}\n", .{next_user.credentialID.id.get()});
-                switch (next_user.publicKey) {
-                    .P256 => |k| {
+                switch (next_user.publicKey.kty) {
+                    .Ec2 => {
                         // sec1 (https://www.secg.org/sec1-v2.pdf) 2.3.3
                         // 04 || X || Y
                         try stdout.print("  coseKey ({any}): 04{x}{x}\n", .{
-                            k.alg,
-                            &k.x,
-                            &k.y,
+                            next_user.publicKey.alg,
+                            next_user.publicKey.x.?,
+                            next_user.publicKey.y.?,
                         });
                     },
+                    else => {},
                 }
                 try stdout.flush();
             }

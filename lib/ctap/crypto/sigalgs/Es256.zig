@@ -13,9 +13,9 @@ pub const Es256 = SigAlg{
     .from_priv = from_priv,
 };
 
-pub fn generate(io: std.Io) cbor.cose.Key {
+pub fn generate(allocator: std.mem.Allocator, io: std.Io) cbor.cose.Key {
     // Create key pair
-    return cbor.cose.Key.es256(io);
+    return cbor.cose.Key.es256(allocator, io);
 }
 
 pub fn generateDeterministic(seed: []const u8) SigAlg.Errors!cbor.cose.Key {

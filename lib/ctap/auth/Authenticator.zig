@@ -116,7 +116,13 @@ pub const Auth = struct {
     /// - Timestamp
     io: std.Io,
 
-    pub fn default(callbacks: Callbacks, io: std.Io) @This() {
+    allocator: std.mem.Allocator,
+
+    pub fn default(
+        callbacks: Callbacks,
+        allocator: std.mem.Allocator,
+        io: std.Io,
+    ) @This() {
         return .{
             .callbacks = callbacks,
             .settings = .{
@@ -145,6 +151,7 @@ pub const Auth = struct {
                 fido.ctap.crypto.algorithms.Es256,
             },
             .io = io,
+            .allocator = allocator,
         };
     }
 

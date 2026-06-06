@@ -586,14 +586,17 @@ pub const client_pin = struct {
         version: keylib.ctap.pinuv.common.PinProtocol,
         peer_cose_key: cbor.cose.Key,
     ) !Encapsulation {
+        if (peer_cose_key.x == null or peer_cose_key.x.?.len != 32) return error.MissingKeyXCoord;
+        if (peer_cose_key.y == null or peer_cose_key.y.?.len != 32) return error.MissingKeyYCoord;
+
         var seed: [EcdhP256.secret_length]u8 = undefined;
         try io.randomSecure(seed[0..]);
         const k = try EcdhP256.KeyPair.create(seed);
 
         const shared_point = try EcdhP256.scalarmultXY(
             k.secret_key,
-            peer_cose_key.P256.x,
-            peer_cose_key.P256.y,
+            peer_cose_key.x.?[0..32].*,
+            peer_cose_key.y.?[0..32].*,
         );
 
         const z: [32]u8 = shared_point.toUncompressedSec1()[1..33].*;
@@ -637,7 +640,10 @@ pub const client_pin = struct {
                 return err.errorFromInt(response[0]);
             }
 
-            const cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{});
+            const cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{
+                .allocator = a,
+            });
+            defer if (cpr.keyAgreement) |ka| ka.deinit(a);
 
             if (cpr.keyAgreement == null) return error.MissingPar;
 
@@ -678,11 +684,13 @@ pub const client_pin = struct {
         var request = ClientPin{
             .pinUvAuthProtocol = e.version,
             .subCommand = .setPIN,
-            .keyAgreement = cbor.cose.Key.fromP256Pub(
+            .keyAgreement = try cbor.cose.Key.fromP256Pub(
                 .EcdhEsHkdf256,
                 e.platform_key_agreement_key,
+                a,
             ),
         };
+        defer request.keyAgreement.?.deinit(a);
 
         var paddedPin: [64]u8 = .{0} ** 64;
         @memcpy(paddedPin[0..newPin.len], newPin);
@@ -759,11 +767,13 @@ pub const client_pin = struct {
         var request = ClientPin{
             .pinUvAuthProtocol = e.version,
             .subCommand = .changePIN,
-            .keyAgreement = cbor.cose.Key.fromP256Pub(
+            .keyAgreement = try cbor.cose.Key.fromP256Pub(
                 .EcdhEsHkdf256,
                 e.platform_key_agreement_key,
+                a,
             ),
         };
+        defer request.keyAgreement.?.deinit(a);
 
         // Calculate: pinHashEnc: The result of calling
         //            encrypt(shared secret, LEFT(SHA-256(curPin), 16))
@@ -870,11 +880,13 @@ pub const client_pin = struct {
         var request = ClientPin{
             .pinUvAuthProtocol = e.version,
             .subCommand = .getPinToken,
-            .keyAgreement = cbor.cose.Key.fromP256Pub(
+            .keyAgreement = try cbor.cose.Key.fromP256Pub(
                 .EcdhEsHkdf256,
                 e.platform_key_agreement_key,
+                a,
             ),
         };
+        defer request.keyAgreement.?.deinit(a);
 
         var pin_hash: [Sha256.digest_length]u8 = undefined;
         Sha256.hash(pin, &pin_hash, .{});
@@ -922,6 +934,7 @@ pub const client_pin = struct {
             }
 
             const cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{});
+            defer if (cpr.keyAgreement) |ka| ka.deinit(a);
 
             if (cpr.pinUvAuthToken == null) return error.MissingPar;
 
@@ -955,12 +968,14 @@ pub const client_pin = struct {
         var request = ClientPin{
             .pinUvAuthProtocol = e.version,
             .subCommand = .getPinUvAuthTokenUsingPinWithPermissions,
-            .keyAgreement = cbor.cose.Key.fromP256Pub(
+            .keyAgreement = try cbor.cose.Key.fromP256Pub(
                 .EcdhEsHkdf256,
                 e.platform_key_agreement_key,
+                a,
             ),
             .permissions = std.mem.toBytes(permissions)[0],
         };
+        defer request.keyAgreement.?.deinit(a);
 
         if (rpId) |id| {
             request.rpId = try .fromSlice(id);
@@ -1012,6 +1027,7 @@ pub const client_pin = struct {
             }
 
             const cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{});
+            defer if (cpr.keyAgreement) |ka| ka.deinit(a);
 
             if (cpr.pinUvAuthToken == null) return error.MissingPar;
 
@@ -1043,12 +1059,14 @@ pub const client_pin = struct {
         var request = ClientPin{
             .pinUvAuthProtocol = e.version,
             .subCommand = .getPinUvAuthTokenUsingUvWithPermissions,
-            .keyAgreement = cbor.cose.Key.fromP256Pub(
+            .keyAgreement = try cbor.cose.Key.fromP256Pub(
                 .EcdhEsHkdf256,
                 e.platform_key_agreement_key,
+                a,
             ),
             .permissions = std.mem.toBytes(permissions)[0],
         };
+        defer request.keyAgreement.?.deinit(a);
 
         if (rpId) |id| {
             request.rpId = try .fromSlice(id);
@@ -1070,6 +1088,7 @@ pub const client_pin = struct {
             }
 
             var cpr = try cbor.parse(ClientPinResponse, try cbor.DataItem.new(response[1..]), .{});
+            defer if (cpr.keyAgreement) |ka| ka.deinit(a);
 
             if (cpr.pinUvAuthToken == null) return error.MissingPar;
 
@@ -1335,7 +1354,7 @@ pub const cred_management = struct {
             return .{
                 .user = r.user.?,
                 .credentialID = r.credentialID.?,
-                .publicKey = r.publicKey.?,
+                .publicKey = try r.publicKey.?.copySecure(a),
                 .totalCredentials = r.totalCredentials.?,
                 .credProtect = r.credProtect.?,
             };
@@ -1384,7 +1403,7 @@ pub const cred_management = struct {
             return .{
                 .user = r.user.?,
                 .credentialID = r.credentialID.?,
-                .publicKey = r.publicKey.?,
+                .publicKey = try r.publicKey.?.copySecure(a),
                 .credProtect = r.credProtect.?,
             };
         } else {

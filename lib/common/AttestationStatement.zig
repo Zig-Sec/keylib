@@ -18,10 +18,7 @@ pub const AttestationStatement = union(fido.common.AttestationStatementFormatIde
         /// to generate the attestation signature.
         alg: cbor.cose.Algorithm,
         /// A byte string containing the attestation signature.
-        ///
-        /// TODO: A ABS256B can hold signatures up to 2048 bytes, e.g., RSA-2048.
-        /// This has to be modified to accomodate larger signatures.
-        sig: dt.ABS256B,
+        sig: []const u8,
         // The elements of this array contain attestnCert and its certificate chain (if any),
         // each encoded in X.509 format. The attestation certificate attestnCert MUST be
         // the first element in the array.
@@ -41,6 +38,8 @@ pub const AttestationStatement = union(fido.common.AttestationStatementFormatIde
     pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
         switch (self.*) {
             .@"packed" => |p| {
+                allocator.free(p.sig);
+
                 if (p.x5c) |x5c| {
                     for (x5c) |v| allocator.free(v);
                     allocator.free(x5c);

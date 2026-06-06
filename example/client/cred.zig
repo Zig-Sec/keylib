@@ -232,19 +232,21 @@ pub fn main(init: std.process.Init) !void {
     defer mc_response.deinit(allocator);
 
     const credId = mc_response.authData.getCredId();
-    const coseKey = try mc_response.authData.getCredentialPublicKey();
+    const coseKey = try mc_response.authData.getCredentialPublicKey(allocator);
+    defer coseKey.deinit(allocator);
 
     try stdout.print("credId: {x}\n", .{credId.?});
-    switch (coseKey.?) {
-        .P256 => |k| {
+    switch (coseKey.kty) {
+        .Ec2 => {
             // sec1 (https://www.secg.org/sec1-v2.pdf) 2.3.3
             // 04 || X || Y
             try stdout.print("coseKey ({any}): 04{x}{x}\n", .{
-                k.alg,
-                &k.x,
-                &k.y,
+                coseKey.alg,
+                coseKey.x.?,
+                coseKey.y.?,
             });
         },
+        else => {},
     }
     try stdout.flush();
 }

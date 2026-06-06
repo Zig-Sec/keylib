@@ -14,7 +14,7 @@ pub const Errors = error{
 /// The algorithm used
 alg: cbor.cose.Algorithm,
 /// Create a new random key-pair
-generate: *const fn (io: std.Io) cbor.cose.Key,
+generate: *const fn (allocator: std.mem.Allocator, io: std.Io) cbor.cose.Key,
 /// Deterministically creates a new key-pair using the given seed
 generateDeterministic: *const fn (seed: []const u8) Errors!cbor.cose.Key,
 /// Sign the given data

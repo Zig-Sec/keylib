@@ -28,8 +28,15 @@ const dt = keylib.common.dt;
 var gpa = std.heap.DebugAllocator(.{}){};
 const allocator = gpa.allocator();
 
+var gpa2 = std.heap.DebugAllocator(.{}){};
+const allocator2 = gpa.allocator();
+
 pub fn main(init: std.process.Init) !void {
     defer _ = gpa.detectLeaks();
+    defer _ = gpa2.detectLeaks();
+
+    var aa = std.heap.ArenaAllocator.init(allocator2);
+    const aallocator = aa.allocator();
 
     //// a static credential to work with
     //try data_set.append(.{
@@ -104,6 +111,7 @@ pub fn main(init: std.process.Init) !void {
         // - Cryptographically Secure Pseudo Random Number Generator (CSPRNG)
         // - Timestamps
         .io = init.io,
+        .allocator = aallocator,
         // If you don't want to increment the sign counts
         // of credentials (e.g. because you sync them between devices)
         // set this to true.
@@ -140,6 +148,7 @@ pub fn main(init: std.process.Init) !void {
             // Those packets are passed to the CTAPHID handler who assembles
             // them into a CTAPHID message.
             var response = ctaphid.handle(packet);
+            _ = aa.reset(.free_all);
             // Once a message is complete (or an error has occured) you
             // get a response.
             if (response) |*res| blk: {

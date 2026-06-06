@@ -446,12 +446,20 @@ pub fn authenticatorMakeCredential(
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     // 19. Create attestation statement
     // ++++++++++++++++++++++++++++++++++++++++++++++++
-    var buffer: [256]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = fba.allocator();
-    var cose_public_key = std.Io.Writer.Allocating.init(allocator);
+
+    // Depending on the key (e.g., ES256 vs ML-DSA) the key siza varies between 256 bytes
+    // and > 4KB.
+    var cose_public_key = std.Io.Writer.Allocating.init(auth.allocator);
+    defer cose_public_key.deinit();
+
+    const pub_key = entry.key.copySecure(auth.allocator) catch |err| {
+        std.log.err("makeCredential: unable to copy public key ({any})", .{err});
+        return fido.ctap.StatusCodes.ctap1_err_other;
+    };
+    defer pub_key.deinit(auth.allocator);
+
     cbor.stringify(
-        entry.key.copySecure(),
+        pub_key,
         .{ .enum_serialization_type = .Integer },
         &cose_public_key.writer,
     ) catch {
@@ -495,14 +503,12 @@ pub fn authenticatorMakeCredential(
                 return fido.ctap.StatusCodes.ctap1_err_other;
             };
 
-            fba = std.heap.FixedBufferAllocator.init(&buffer);
-            allocator = fba.allocator();
             const sig = entry.key.sign(
                 &.{
                     ad.get(),
                     &mcp.clientDataHash,
                 },
-                allocator,
+                auth.allocator,
             ) catch {
                 std.log.err("MakeCredential: self signature error", .{});
                 return fido.ctap.StatusCodes.ctap1_err_other;
@@ -510,9 +516,7 @@ pub fn authenticatorMakeCredential(
 
             break :blk fido.common.AttestationStatement{ .@"packed" = .{
                 .alg = alg.alg,
-                .sig = (fido.common.dt.ABS256B.fromSlice(sig) catch {
-                    return fido.ctap.StatusCodes.ctap1_err_other;
-                }).?,
+                .sig = sig,
             } };
         },
         else => blk: {
@@ -521,6 +525,7 @@ pub fn authenticatorMakeCredential(
             };
         },
     };
+    defer stmt.deinit(auth.allocator);
 
     const ao = fido.ctap.response.MakeCredential{
         .fmt = fido.common.AttestationStatementFormatIdentifiers.@"packed",

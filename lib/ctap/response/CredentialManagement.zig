@@ -70,4 +70,6 @@ pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
     if (self.largeBlobKey) |lbk| {
         allocator.free(lbk);
     }
+
+    if (self.publicKey) |key| key.deinit(allocator);
 }

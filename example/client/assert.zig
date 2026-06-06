@@ -71,7 +71,8 @@ pub fn main(init: std.process.Init) !void {
         try stderr.flush();
         return;
     };
-    const key = client.cose.Key.fromP256Pub(.Es256, pub_key);
+    const key = try client.cose.Key.fromP256Pub(.Es256, pub_key, allocator);
+    defer key.deinit(allocator);
 
     // ============================================
     // Open device
