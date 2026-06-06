@@ -53,3 +53,32 @@ cred_random_without_uv: ?[32]u8 = null,
 pub fn desc(_: void, lhs: @This(), rhs: @This()) bool {
     return lhs.created > rhs.created;
 }
+
+pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+    self.key.deinit(allocator);
+
+    if (self.cred_random_with_uv) |*v| {
+        std.crypto.secureZero(u8, v);
+    }
+
+    if (self.cred_random_without_uv) |*v| {
+        std.crypto.secureZero(u8, v);
+    }
+}
+
+pub fn copy(self: *const @This(), allocator: std.mem.Allocator) !@This() {
+    return .{
+        .id = self.id,
+        .user = self.user,
+        .rp = self.rp,
+        .sign_count = self.sign_count,
+        .key = try self.key.copy(allocator),
+        .created = self.created,
+        .discoverable = self.discoverable,
+        .be = self.be,
+        .bs = self.bs,
+        .policy = self.policy,
+        .cred_random_with_uv = self.cred_random_with_uv,
+        .cred_random_without_uv = self.cred_random_without_uv,
+    };
+}

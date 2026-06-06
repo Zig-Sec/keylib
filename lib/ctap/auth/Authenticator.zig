@@ -13,7 +13,6 @@ const DataIterator = fido.ctap.authenticator.callbacks.DataIterator;
 const Error = fido.ctap.authenticator.callbacks.Error;
 const Settings = fido.ctap.authenticator.Settings;
 const PinUvAuth = fido.ctap.pinuv.PinUvAuth;
-const SigAlg = fido.ctap.crypto.SigAlg;
 const AttestationType = fido.common.AttestationType;
 const PublicKeyCredentialParameters = fido.common.PublicKeyCredentialParameters;
 
@@ -59,11 +58,6 @@ pub const Auth = struct {
 
     /// Pin uv auth protocol
     token: PinUvAuth,
-
-    /// A list of signature algorithms
-    ///
-    /// This list should match the algorithms defined within the settings.
-    algorithms: []const fido.ctap.crypto.SigAlg,
 
     attestation: AttestationType = .Self,
 
@@ -192,6 +186,8 @@ pub const Auth = struct {
             std.log.info("request({d}): {x}", .{ cmd, request[1..] });
         }
 
+        std.log.info("command: {any}", .{cmd});
+
         for (self.commands) |command| {
             if (command.cmd == cmd) {
                 const status = command.cb(
@@ -219,11 +215,11 @@ pub const Auth = struct {
     }
 
     /// Given a set of credential parameters, select the first algorithm that is also supported by the authenticator.
-    pub fn selectSignatureAlgorithm(self: *@This(), params: []const PublicKeyCredentialParameters) ?SigAlg {
+    pub fn selectSignatureAlgorithm(self: *@This(), params: []const PublicKeyCredentialParameters) ?cbor.cose.Algorithm {
         for (params) |param| {
-            for (self.algorithms) |alg| {
+            for (self.settings.algorithms) |alg| {
                 if (param.alg == alg.alg) {
-                    return alg;
+                    return alg.alg;
                 }
             }
         }

@@ -89,17 +89,6 @@ pub const ctap = struct {
             pub const EcdhP256 = ecdh.EcdhP256;
         };
 
-        /// Abstract interface for signature algorithms
-        pub const SigAlg = @import("ctap/crypto/SigAlg.zig");
-
-        /// Default signature algorithms ready to use
-        ///
-        /// Use SigAlg to implement your own!
-        pub const algorithms = struct {
-            /// Elliptic curve digital signature algorithm using curve P256 and hashing algorithm SHA256
-            pub const Es256 = @import("ctap/crypto/sigalgs/Es256.zig").Es256;
-        };
-
         /// This is the hash (computed using SHA-256) of the JSON-compatible
         /// serialization of client data, as constructed by the client
         pub const ClientDataHash = [32]u8;

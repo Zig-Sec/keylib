@@ -229,10 +229,11 @@ pub fn getUserVerifiedFlagValue(self: *@This()) bool {
 }
 
 /// Return the public part of the key as COSE key.
-pub fn getPublicKey(self: *const @This()) cose.Key {
+pub fn getPublicKey(self: *const @This(), allocator: std.mem.Allocator) !cose.Key {
     return cose.Key.fromP256Pub(
         .EcdhEsHkdf256,
         self.authenticator_key_agreement_key.?,
+        allocator,
     );
 }
 
@@ -245,10 +246,13 @@ pub fn ecdh(
     self: *const @This(),
     peer_cose_key: cose.Key,
 ) !dt.ABS64B {
+    if (peer_cose_key.x == null or peer_cose_key.x.?.len != 32) return error.MissingXCoord;
+    if (peer_cose_key.y == null or peer_cose_key.y.?.len != 32) return error.MissingYCoord;
+
     const shared_point = try EcdhP256.scalarmultXY(
         self.authenticator_key_agreement_key.?.secret_key,
-        peer_cose_key.P256.x,
-        peer_cose_key.P256.y,
+        peer_cose_key.x.?[0..32].*,
+        peer_cose_key.y.?[0..32].*,
     );
     // let z be the 32-byte, big-endian encoding of the x-coordinate
     // of the shared point

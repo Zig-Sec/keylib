@@ -19,16 +19,31 @@ pub fn authenticatorClientPin(
         cbor.DataItem.new(request) catch {
             return .ctap2_err_invalid_cbor;
         },
-        .{},
+        .{
+            .allocator = auth.allocator,
+        },
     ) catch {
         return .ctap2_err_invalid_cbor;
     };
+    defer {
+        if (client_pin_param.keyAgreement) |ka| {
+            ka.deinit(auth.allocator);
+        }
+    }
 
     var client_pin_response: ?fido.ctap.response.ClientPin = null;
+    defer if (client_pin_response) |cpr| {
+        if (cpr.keyAgreement) |ka| {
+            ka.deinit(auth.allocator);
+        }
+    };
+
+    std.log.info("authenticatorClientPin[{any}]", .{client_pin_param.subCommand});
 
     // Handle one of the sub-commands
     switch (client_pin_param.subCommand) {
         .getPinRetries => {
+            std.log.info("getPinRetries", .{});
             const settings = auth.callbacks.read_settings();
 
             client_pin_response = .{
@@ -37,6 +52,7 @@ pub fn authenticatorClientPin(
             };
         },
         .getUVRetries => {
+            std.log.info("getUVRetries", .{});
             const settings = auth.callbacks.read_settings();
 
             client_pin_response = .{
@@ -44,6 +60,7 @@ pub fn authenticatorClientPin(
             };
         },
         .getKeyAgreement => {
+            std.log.info("getKeyAgreement", .{});
             const protocol = if (client_pin_param.pinUvAuthProtocol) |prot| prot else {
                 return fido.ctap.StatusCodes.ctap2_err_missing_parameter;
             };
@@ -53,11 +70,17 @@ pub fn authenticatorClientPin(
                 return fido.ctap.StatusCodes.ctap1_err_invalid_parameter;
             }
 
+            const pk = auth.token.getPublicKey(auth.allocator) catch |e| {
+                std.log.err("getKeyAgreement: failed to obtain public cose key ({any})", .{e});
+                return fido.ctap.StatusCodes.ctap1_err_other;
+            };
+
             client_pin_response = .{
-                .keyAgreement = auth.token.getPublicKey(),
+                .keyAgreement = pk,
             };
         },
         .changePIN => {
+            std.log.info("changePIN", .{});
             if (retry_state.ctr == 0) {
                 return fido.ctap.StatusCodes.ctap2_err_pin_auth_blocked;
             }
@@ -211,6 +234,7 @@ pub fn authenticatorClientPin(
             // TODO: when implementing persistent pins.
         },
         .getPinUvAuthTokenUsingUvWithPermissions => {
+            std.log.info("getPinUvAuthTokenUsingUvWithPermissions", .{});
             if (retry_state.ctr == 0) {
                 return fido.ctap.StatusCodes.ctap2_err_pin_auth_blocked;
             }
@@ -306,6 +330,7 @@ pub fn authenticatorClientPin(
             };
         },
         .getPinUvAuthTokenUsingPinWithPermissions => {
+            std.log.info("getPinUvAuthTokenUsingPinWithPermissions", .{});
             if (retry_state.ctr == 0) {
                 return fido.ctap.StatusCodes.ctap2_err_pin_auth_blocked;
             }
@@ -450,6 +475,7 @@ pub fn authenticatorClientPin(
             };
         },
         else => {
+            std.log.warn("authenticatorClientPin invalid subcommand", .{});
             return fido.ctap.StatusCodes.ctap2_err_invalid_subcommand;
         },
     }

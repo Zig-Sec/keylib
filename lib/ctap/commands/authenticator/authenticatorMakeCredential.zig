@@ -14,11 +14,12 @@ pub fn authenticatorMakeCredential(
     request: []const u8,
     out: *std.Io.Writer,
 ) fido.ctap.StatusCodes {
-    const di = cbor.DataItem.new(request) catch {
+    const di = cbor.DataItem.new(request) catch |e| {
+        std.log.err("authenticatorMakeCredential: invalid data item ({any})", .{e});
         return .ctap2_err_invalid_cbor;
     };
-    const mcp = cbor.parse(fido.ctap.request.MakeCredential, di, .{}) catch {
-        std.log.err("unable to map request to `MakeCredential` data type", .{});
+    const mcp = cbor.parse(fido.ctap.request.MakeCredential, di, .{}) catch |e| {
+        std.log.err("unable to map request to `MakeCredential` data type ({any})", .{e});
         return .ctap2_err_invalid_cbor;
     };
 
@@ -31,7 +32,7 @@ pub fn authenticatorMakeCredential(
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     // 3. Validate pubKeyCredParams
     // ++++++++++++++++++++++++++++++++++++++++++++++++
-    var alg = if (auth.selectSignatureAlgorithm(mcp.pubKeyCredParams.get())) |alg| alg else {
+    const alg = if (auth.selectSignatureAlgorithm(mcp.pubKeyCredParams.get())) |alg| alg else {
         return fido.ctap.StatusCodes.ctap2_err_unsupported_algorithm;
     };
 
@@ -385,9 +386,14 @@ pub fn authenticatorMakeCredential(
     const id = uuid.v7.new(auth.io);
     const urn = uuid.urn.serialize(id);
 
-    const key_pair = alg.generate(
+    const key_pair = cbor.cose.Key.generate(
+        alg,
+        auth.allocator,
         auth.io,
-    );
+    ) catch |e| {
+        std.log.err("makeCredential: failed to generate key with alg: {any} ({any})", .{ alg, e });
+        return fido.ctap.StatusCodes.ctap1_err_other;
+    };
 
     var entry = fido.ctap.authenticator.Credential{
         .id = (dt.ABS64B.fromSlice(&urn) catch unreachable).?,
@@ -401,6 +407,8 @@ pub fn authenticatorMakeCredential(
         // We just created the credential, i.e. it hasn't been backed up yet
         .bs = false,
     };
+    defer entry.deinit(auth.allocator);
+
     entry.policy = policy;
 
     // If the HMAC secret extension has been requested
@@ -515,7 +523,7 @@ pub fn authenticatorMakeCredential(
             };
 
             break :blk fido.common.AttestationStatement{ .@"packed" = .{
-                .alg = alg.alg,
+                .alg = alg,
                 .sig = sig,
             } };
         },

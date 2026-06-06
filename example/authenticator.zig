@@ -65,7 +65,10 @@ pub fn main(init: std.process.Init) !void {
         // CTAP2 spec!
         .settings = .{
             // Those are the FIDO2 spec you support
-            .versions = &.{ .FIDO_2_0, .FIDO_2_1 },
+            .versions = &.{
+                .FIDO_2_0,
+                .FIDO_2_1,
+            },
             // The extensions are defined as strings which should make it easy to extend
             // the authenticator (in combination with a new command).
             .extensions = &.{ "credProtect", "federationId" },
@@ -102,11 +105,6 @@ pub fn main(init: std.process.Init) !void {
         // Here we initialize the pinUvAuth token data structure wich handles the generation
         // and management of pinUvAuthTokens.
         .token = keylib.ctap.pinuv.PinUvAuth.v2(init.io),
-        // Here we set the supported algorithm. You can also implement your
-        // own and add them here.
-        .algorithms = &.{
-            keylib.ctap.crypto.algorithms.Es256,
-        },
         // The Io interface provides the following:
         // - Cryptographically Secure Pseudo Random Number Generator (CSPRNG)
         // - Timestamps
@@ -145,10 +143,11 @@ pub fn main(init: std.process.Init) !void {
         // We read in usb packets with a size of 64 bytes.
         var buffer: [64]u8 = .{0} ** 64;
         if (u.read(&buffer)) |packet| {
+            defer _ = aa.reset(.free_all);
+
             // Those packets are passed to the CTAPHID handler who assembles
             // them into a CTAPHID message.
             var response = ctaphid.handle(packet);
-            _ = aa.reset(.free_all);
             // Once a message is complete (or an error has occured) you
             // get a response.
             if (response) |*res| blk: {
@@ -372,12 +371,13 @@ pub fn my_write(
 
     while (i < data_set.items.len) : (i += 1) {
         if (std.mem.eql(u8, data_set.items[i].id.get(), data.id.get())) {
-            data_set.items[i] = data;
+            data_set.items[i].deinit(allocator);
+            data_set.items[i] = data.copy(allocator) catch return error.Other;
             return;
         }
     }
 
-    try data_set.append(allocator, data);
+    try data_set.append(allocator, data.copy(allocator) catch return error.Other);
 }
 
 pub fn my_delete(
