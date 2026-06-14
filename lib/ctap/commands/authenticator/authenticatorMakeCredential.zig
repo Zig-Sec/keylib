@@ -517,6 +517,9 @@ pub fn authenticatorMakeCredential(
                     &mcp.clientDataHash,
                 },
                 auth.allocator,
+                .{
+                    .sig_format = .fido,
+                },
             ) catch {
                 std.log.err("MakeCredential: self signature error", .{});
                 return fido.ctap.StatusCodes.ctap1_err_other;

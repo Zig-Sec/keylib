@@ -389,6 +389,9 @@ pub fn authenticatorGetAssertion(
     const sig = selected_credential.?.key.sign(
         &.{ ad.get(), &gap.clientDataHash },
         allocator,
+        .{
+            .sig_format = .fido,
+        },
     ) catch {
         std.log.err(
             "getAssertion: signature creation failed for credential with id: {x}",

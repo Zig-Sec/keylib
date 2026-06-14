@@ -68,6 +68,7 @@ pub fn main(init: std.process.Init) !void {
             .versions = &.{
                 .FIDO_2_0,
                 .FIDO_2_1,
+                .FIDO_2_2,
             },
             // The extensions are defined as strings which should make it easy to extend
             // the authenticator (in combination with a new command).
@@ -98,7 +99,10 @@ pub fn main(init: std.process.Init) !void {
             // The transports your authenticator supports.
             .transports = &.{.usb},
             // The algorithms you support.
-            .algorithms = &.{.{ .alg = .Es256 }},
+            .algorithms = &.{
+                .{ .alg = .@"ML-DSA-87" },
+                .{ .alg = .Es256 },
+            },
             .firmwareVersion = 0xcafe,
             .remainingDiscoverableCredentials = 100,
         },

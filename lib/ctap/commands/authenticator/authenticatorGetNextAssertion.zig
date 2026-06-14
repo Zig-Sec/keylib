@@ -142,6 +142,9 @@ pub fn authenticatorGetNextAssertion(
     const sig = selected_credential.?.key.sign(
         &.{ ad.get(), &auth.getAssertion.?.cdh },
         allocator,
+        .{
+            .sig_format = .fido,
+        },
     ) catch {
         std.log.err(
             "getAssertion: signature creation failed for credential with id: {x}",

@@ -5,9 +5,8 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .zbor = .{
-            //.url = "https://codeberg.org/r4gus/zbor/archive/0.21.1.tar.gz",
-            //.hash = "zbor-0.21.1-kr-CoPJ7AwCFwvJhlhfWF-E4qI7rnHF0MM0NwuZ1WOdU",
-            .path = "../zbor",
+            .url = "git+https://codeberg.org/r4gus/zbor?ref=cose#4693e9a533eae924d469ade34b75a2ff6d82218e",
+            .hash = "zbor-0.21.2-kr-CoPkvBAATwJguCrB2vtgXy4Dpsxsc7ZZFroRauAE8",
         },
         .hidapi = .{
             .url = "https://codeberg.org/r4gus/hidapi/archive/0.2.0.tar.gz",
