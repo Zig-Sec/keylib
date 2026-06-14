@@ -37,6 +37,7 @@ pub fn authenticatorGetNextAssertion(
     // Get Credential
     // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     var selected_credential: ?fido.ctap.authenticator.Credential = null;
+    defer if (selected_credential) |*c| c.deinit(auth.allocator);
     var credential = auth.callbacks.read_next() catch {
         return fido.ctap.StatusCodes.ctap2_err_no_credentials;
     };
@@ -68,6 +69,8 @@ pub fn authenticatorGetNextAssertion(
             selected_credential = credential;
             auth.getAssertion.?.count += 1;
             break;
+        } else {
+            credential.deinit(auth.allocator);
         }
 
         credential = auth.callbacks.read_next() catch {

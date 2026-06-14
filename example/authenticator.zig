@@ -28,15 +28,13 @@ const dt = keylib.common.dt;
 var gpa = std.heap.DebugAllocator(.{}){};
 const allocator = gpa.allocator();
 
-var gpa2 = std.heap.DebugAllocator(.{}){};
-const allocator2 = gpa.allocator();
-
 pub fn main(init: std.process.Init) !void {
     defer _ = gpa.detectLeaks();
-    defer _ = gpa2.detectLeaks();
 
-    var aa = std.heap.ArenaAllocator.init(allocator2);
-    const aallocator = aa.allocator();
+    defer {
+        for (data_set.items) |*item| item.deinit(allocator);
+        data_set.deinit(allocator);
+    }
 
     //// a static credential to work with
     //try data_set.append(.{
@@ -113,7 +111,7 @@ pub fn main(init: std.process.Init) !void {
         // - Cryptographically Secure Pseudo Random Number Generator (CSPRNG)
         // - Timestamps
         .io = init.io,
-        .allocator = aallocator,
+        .allocator = allocator,
         // If you don't want to increment the sign counts
         // of credentials (e.g. because you sync them between devices)
         // set this to true.
@@ -142,12 +140,16 @@ pub fn main(init: std.process.Init) !void {
     };
     defer u.close();
 
+    // This is a ugly way to terminate the loop after
+    // a few rounds and get potential memory leaks printed
+    // (see if-statement below)
+    //var count: u8 = 0;
+
     // This is the main loop
     while (true) {
         // We read in usb packets with a size of 64 bytes.
         var buffer: [64]u8 = .{0} ** 64;
         if (u.read(&buffer)) |packet| {
-            defer _ = aa.reset(.free_all);
 
             // Those packets are passed to the CTAPHID handler who assembles
             // them into a CTAPHID message.
@@ -174,6 +176,9 @@ pub fn main(init: std.process.Init) !void {
                         break :blk;
                     };
                 }
+
+                //count += 1;
+                //if (count > 20) return;
             }
         }
 
@@ -275,7 +280,7 @@ pub fn my_read_first(
                     fetch_id = null;
                     fetch_index = null;
                 }
-                return v;
+                return try v.copy(allocator);
             }
         }
 
@@ -292,7 +297,7 @@ pub fn my_read_first(
                     fetch_rp = null;
                     fetch_index = null;
                 }
-                return v;
+                return try v.copy(allocator);
             }
         }
 
@@ -306,7 +311,7 @@ pub fn my_read_first(
             if (fetch_index.? >= data_set.items.len) {
                 fetch_index = null;
             }
-            return v;
+            return try v.copy(allocator);
         } else {
             fetch_index = null;
         }
@@ -342,7 +347,7 @@ pub fn my_read_next() CallbackError!Credential {
                         fetch_id = null;
                         fetch_index = null;
                     }
-                    return v;
+                    return try v.copy(allocator);
                 }
             }
             return error.DoesNotExist;
@@ -357,7 +362,7 @@ pub fn my_read_next() CallbackError!Credential {
                         fetch_rp = null;
                         fetch_index = null;
                     }
-                    return v;
+                    return try v.copy(allocator);
                 }
             }
             return error.DoesNotExist;

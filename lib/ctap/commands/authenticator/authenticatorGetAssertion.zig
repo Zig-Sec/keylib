@@ -173,6 +173,7 @@ pub fn authenticatorGetAssertion(
     // 8. Locate credentials
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     var selected_credential: ?fido.ctap.authenticator.Credential = null;
+    defer if (selected_credential) |*c| c.deinit(auth.allocator);
     var total_credentials: usize = 0;
     var credential = auth.callbacks.read_first(null, gap.rpId, null) catch {
         return fido.ctap.StatusCodes.ctap2_err_no_credentials;
@@ -205,7 +206,11 @@ pub fn authenticatorGetAssertion(
             total_credentials += 1;
             if (selected_credential == null) {
                 selected_credential = credential;
+            } else {
+                credential.deinit(auth.allocator);
             }
+        } else {
+            credential.deinit(auth.allocator);
         }
 
         credential = auth.callbacks.read_next() catch {
@@ -218,38 +223,7 @@ pub fn authenticatorGetAssertion(
     credential = auth.callbacks.read_first(null, gap.rpId, null) catch {
         return fido.ctap.StatusCodes.ctap2_err_no_credentials;
     };
-
-    while (true) {
-        var skip = false;
-        const policy = credential.policy;
-
-        // if credential protection for a credential is marked as
-        // userVerificationRequired, and the "uv" bit is false in
-        // the response, remove that credential from the applicable
-        // credentials list
-        if (policy == .userVerificationRequired and !uv_response) {
-            skip = true;
-        }
-
-        // if credential protection for a credential is marked as
-        // userVerificationOptionalWithCredentialIDList and there
-        // is no allowList passed by the client and the "uv" bit is
-        // false in the response, remove that credential from the
-        // applicable credentials list
-        if (policy == .userVerificationOptionalWithCredentialIDList and gap.allowList == null and !uv_response) {
-            skip = true;
-        }
-
-        // TODO: check allow list
-
-        if (!skip) {
-            break;
-        }
-
-        credential = auth.callbacks.read_next() catch {
-            break;
-        };
-    }
+    credential.deinit(auth.allocator);
 
     if (selected_credential == null) {
         return fido.ctap.StatusCodes.ctap2_err_no_credentials;
@@ -385,6 +359,8 @@ pub fn authenticatorGetAssertion(
     var sig_buffer: [256]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&sig_buffer);
     const allocator = fba.allocator();
+
+    std.debug.print("\n\n=========================\nkey: {x}\n", .{selected_credential.?.key.d.?});
 
     const sig = selected_credential.?.key.sign(
         &.{ ad.get(), &gap.clientDataHash },

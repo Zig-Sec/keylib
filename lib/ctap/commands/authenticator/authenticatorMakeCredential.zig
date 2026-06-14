@@ -437,7 +437,10 @@ pub fn authenticatorMakeCredential(
                     credential.id.get(),
                 });
                 entry.id = credential.id;
+                credential.deinit(auth.allocator);
                 break :outer;
+            } else {
+                credential.deinit(auth.allocator);
             }
 
             credential = auth.callbacks.read_next() catch {
