@@ -2,7 +2,7 @@
 
 <a href="https://liberapay.com/r4gus/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a>
 
-FIDO2 compatible *authenticator* and *client* library written in [Zig](https://ziglang.org/). The authenticator framework requires __zero dynamic allocations__.
+FIDO2 compatible *authenticator* and *client* library written in [Zig](https://ziglang.org/).
 
 This package can serve two purposes:
 
@@ -158,23 +158,6 @@ Answering this question isn't straightforward. The library, by its nature, is de
 No, we do not fully implement the entire [CTAP2](https://fidoalliance.org/specs/fido-v2.2-rd-20230321/fido-client-to-authenticator-protocol-v2.2-rd-20230321.html#intro) specification. In the initial version of this library, which can be found on GitHub, our aim was to remain completely platform-agnostic and cover most of the CTAP2 specification. However, this approach introduced complexities for both users and developers. The current version of this library strikes a balance between usability and feature completeness.
 
 We offer support for operations like __authenticatorMakeCredential__, __authenticatorGetAssertion__, __authenticatorGetInfo__, and __authenticatorClientPin__, with built-in support for __user verification__ and the __pinUvAuth protocol__ (versions 1 and 2). You are responsible for handling data management tasks (such as secure storage, updates, and deletions), verifying user presence, and conducting user verification. These responsibilities are fulfilled by implementing the necessary callbacks used to instantiate an authenticator (refer to the "Getting Started" section for details).
-
-</details>
-
-<details>
-<summary><ins>Zero dynamic allocations?</ins></summary>
-
-The authenticator part of this library doesn't allocate any memory dynamically. This has some draw backs like a fixed
-size for strings (e.g., rpId, user name, etc.) but also reduces the complexity of the code.
-
-The authenticator example uses `88655` bytes of stack space when compiled with `-Doptimize=ReleaseSmall` on Linux (x86\_64).
-
-> The authenticator example has been profiled using valgrind. 
-> * `zig build auth-example -Doptimize=ReleaseSmall` 
-> * `valgrind --tool=drd --show-stack-usage=yes ./zig-out/bin/authenticator`
-> * Test page: [webauthn.io](https://webauthn.io/) - Register + Authentication
-> `thread 1 finished and used 88655 bytes out of 8388608 on its stack.`
-> `ThinkPad-X1-Yoga-3rd 6.5.0-35-generic #35~22.04.1-Ubuntu SMP PREEMPT_DYNAMIC x86_64 GNU/Linux`
 
 </details>
 
