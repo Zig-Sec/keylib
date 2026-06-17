@@ -11,7 +11,10 @@ pub fn authenticatorGetInfo(
 ) fido.ctap.StatusCodes {
     _ = request;
 
-    const settings = auth.callbacks.read_settings();
+    const settings = auth.callbacks.read_settings(
+        auth.allocator,
+        auth.io,
+    );
 
     auth.settings.minPINLength = settings.min_pin_length;
     auth.settings.forcePINChange = settings.force_pin_change;

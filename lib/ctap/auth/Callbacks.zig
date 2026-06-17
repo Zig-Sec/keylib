@@ -102,6 +102,8 @@ pub const UpCallback = *const fn (
     user: ?fido.common.User,
     /// Information about the relying party (e.g., `Github (github.com)`)
     rp: ?fido.common.RelyingParty,
+    allocator: std.mem.Allocator,
+    io: std.Io,
 ) UpResult;
 
 /// Type of the User Verification (UV) callback
@@ -118,6 +120,8 @@ pub const UvCallback = ?*const fn (
     rp: ?fido.common.RelyingParty,
     /// Optional pin hash for pin UV.
     pinHash: ?[]const u8,
+    allocator: std.mem.Allocator,
+    io: std.Io,
 ) UvResult;
 
 /// Read the first credential associated with `id` and `rp` into out
@@ -131,25 +135,41 @@ pub const ReadFirstCallback = *const fn (
     id: ?dt.ABS64B,
     rp: ?dt.ABS128T,
     hash: ?[32]u8,
+    allocator: std.mem.Allocator,
+    io: std.Io,
 ) CallbackError!fido.ctap.authenticator.Credential;
 
 /// This function can be called multiple times after calling the ReadFirstCallback to obtain the remaining credentials.
-pub const ReadNextCallback = *const fn () CallbackError!fido.ctap.authenticator.Credential;
+pub const ReadNextCallback = *const fn (
+    allocator: std.mem.Allocator,
+    io: std.Io,
+) CallbackError!fido.ctap.authenticator.Credential;
 
-pub const ReadSettingsCallback = *const fn () fido.ctap.authenticator.Meta;
-pub const WriteSettingsCallback = *const fn (data: fido.ctap.authenticator.Meta) void;
+pub const ReadSettingsCallback = *const fn (
+    allocator: std.mem.Allocator,
+    io: std.Io,
+) fido.ctap.authenticator.Meta;
+pub const WriteSettingsCallback = *const fn (
+    data: fido.ctap.authenticator.Meta,
+    allocator: std.mem.Allocator,
+    io: std.Io,
+) void;
 
 /// Write `data` to permanent storage (e.g., database, filesystem, ...)
 pub const CreateCallback = *const fn (
     data: fido.ctap.authenticator.Credential,
+    allocator: std.mem.Allocator,
+    io: std.Io,
 ) CallbackError!void;
 
 /// Delete the entry with the given `id`
 ///
 /// Returns either Error.SUCCESS on success or an error.
 pub const DeleteCallback = *const fn (
-    id: [*c]const u8,
-) callconv(.c) Error;
+    id: []const u8,
+    allocator: std.mem.Allocator,
+    io: std.Io,
+) CallbackError!void;
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++
 // Data Structures for CTAP2 (CBOR) commands
@@ -177,7 +197,11 @@ pub const Ctap2CommandMapping = struct {
 // +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 /// Replace the CurrentStoredPIN with a new pin.
-pub const SetPin = *const fn (pin: []const u8) CallbackError!void;
+pub const SetPin = *const fn (
+    pin: []const u8,
+    allocator: std.mem.Allocator,
+    io: std.Io,
+) CallbackError!void;
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++
 // Callbacks

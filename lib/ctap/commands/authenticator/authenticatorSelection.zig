@@ -13,6 +13,8 @@ pub fn authenticatorSelection(
         "Use this authenticator?",
         null,
         null,
+        auth.allocator,
+        auth.io,
     );
 
     return switch (up) {

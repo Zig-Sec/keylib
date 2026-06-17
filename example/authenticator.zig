@@ -225,11 +225,15 @@ pub fn my_uv(
     /// The pinHash can be used for comparison with the stored PIN hash
     /// when using PIN based authentication.
     pinHash: ?[]const u8,
+    a: std.mem.Allocator,
+    io: std.Io,
 ) UvResult {
     _ = info;
     _ = user;
     _ = rp;
     _ = pinHash;
+    _ = a;
+    _ = io;
 
     // The authenticator backend is only started if a correct password has been provided
     // so we return Accepted. As this state may last for multiple minutes it's important
@@ -246,10 +250,14 @@ pub fn my_up(
     user: ?keylib.common.User,
     /// Information about the relying party (e.g., `Github (github.com)`)
     rp: ?keylib.common.RelyingParty,
+    a: std.mem.Allocator,
+    io: std.Io,
 ) UpResult {
     _ = info;
     _ = user;
     _ = rp;
+    _ = a;
+    _ = io;
 
     return UpResult.Accepted;
 }
@@ -258,10 +266,13 @@ pub fn my_read_first(
     id: ?dt.ABS64B,
     rp: ?dt.ABS128T,
     hash: ?[32]u8,
+    a: std.mem.Allocator,
+    io: std.Io,
 ) CallbackError!Credential {
     // The hash is mostly relevant for credential management
     // because the client will only send a SHA256(rpId).
     _ = hash;
+    _ = io;
 
     std.log.info("my_first_read: {s}, {s}", .{
         if (id) |uid| uid.get() else "n.a.",
@@ -280,7 +291,7 @@ pub fn my_read_first(
                     fetch_id = null;
                     fetch_index = null;
                 }
-                return try v.copy(allocator);
+                return try v.copy(a);
             }
         }
 
@@ -297,7 +308,7 @@ pub fn my_read_first(
                     fetch_rp = null;
                     fetch_index = null;
                 }
-                return try v.copy(allocator);
+                return try v.copy(a);
             }
         }
 
@@ -311,7 +322,7 @@ pub fn my_read_first(
             if (fetch_index.? >= data_set.items.len) {
                 fetch_index = null;
             }
-            return try v.copy(allocator);
+            return try v.copy(a);
         } else {
             fetch_index = null;
         }
@@ -322,7 +333,12 @@ pub fn my_read_first(
     return error.DoesNotExist;
 }
 
-pub fn my_read_next() CallbackError!Credential {
+pub fn my_read_next(
+    a: std.mem.Allocator,
+    io: std.Io,
+) CallbackError!Credential {
+    _ = io;
+
     std.log.info("my_read_next: {any}, {s}, {s}", .{
         fetch_index,
         if (fetch_id) |uid| uid.get() else "n.a.",
@@ -347,7 +363,7 @@ pub fn my_read_next() CallbackError!Credential {
                         fetch_id = null;
                         fetch_index = null;
                     }
-                    return try v.copy(allocator);
+                    return try v.copy(a);
                 }
             }
             return error.DoesNotExist;
@@ -362,7 +378,7 @@ pub fn my_read_next() CallbackError!Credential {
                         fetch_rp = null;
                         fetch_index = null;
                     }
-                    return try v.copy(allocator);
+                    return try v.copy(a);
                 }
             }
             return error.DoesNotExist;
@@ -375,11 +391,18 @@ pub fn my_read_next() CallbackError!Credential {
 
 pub fn my_write(
     data: Credential,
+    a: std.mem.Allocator,
+    io: std.Io,
 ) CallbackError!void {
+    _ = a;
+    _ = io;
     var i: usize = 0;
 
     while (i < data_set.items.len) : (i += 1) {
         if (std.mem.eql(u8, data_set.items[i].id.get(), data.id.get())) {
+            // The data set is not managed by the authenticator instance, i.e.,
+            // we don't use the alllocator passed by the authenticator, even though
+            // one can use the same allocator.
             data_set.items[i].deinit(allocator);
             data_set.items[i] = data.copy(allocator) catch return error.Other;
             return;
@@ -390,18 +413,33 @@ pub fn my_write(
 }
 
 pub fn my_delete(
-    id: [*c]const u8,
-) callconv(.c) Error {
+    id: []const u8,
+    a: std.mem.Allocator,
+    io: std.Io,
+) CallbackError!void {
     _ = id;
-    return Error.Other;
+    _ = a;
+    _ = io;
+    return error.Other;
 }
 
-pub fn my_read_settings() Meta {
+pub fn my_read_settings(
+    a: std.mem.Allocator,
+    io: std.Io,
+) Meta {
+    _ = a;
+    _ = io;
     return Meta{};
 }
 
-pub fn my_write_settings(data: Meta) void {
+pub fn my_write_settings(
+    data: Meta,
+    a: std.mem.Allocator,
+    io: std.Io,
+) void {
     _ = data;
+    _ = a;
+    _ = io;
 }
 
 const callbacks = keylib.ctap.authenticator.callbacks.Callbacks{

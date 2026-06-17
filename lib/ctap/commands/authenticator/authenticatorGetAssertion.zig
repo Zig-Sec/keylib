@@ -175,7 +175,13 @@ pub fn authenticatorGetAssertion(
     var selected_credential: ?fido.ctap.authenticator.Credential = null;
     defer if (selected_credential) |*c| c.deinit(auth.allocator);
     var total_credentials: usize = 0;
-    var credential = auth.callbacks.read_first(null, gap.rpId, null) catch {
+    var credential = auth.callbacks.read_first(
+        null,
+        gap.rpId,
+        null,
+        auth.allocator,
+        auth.io,
+    ) catch {
         return fido.ctap.StatusCodes.ctap2_err_no_credentials;
     };
 
@@ -213,14 +219,23 @@ pub fn authenticatorGetAssertion(
             credential.deinit(auth.allocator);
         }
 
-        credential = auth.callbacks.read_next() catch {
+        credential = auth.callbacks.read_next(
+            auth.allocator,
+            auth.io,
+        ) catch {
             break;
         };
     }
 
     // We previously iterated over all credentials, now we have to get back to the
     // first one, so we can iterate over the remaining ones using getNextAssertion.
-    credential = auth.callbacks.read_first(null, gap.rpId, null) catch {
+    credential = auth.callbacks.read_first(
+        null,
+        gap.rpId,
+        null,
+        auth.allocator,
+        auth.io,
+    ) catch {
         return fido.ctap.StatusCodes.ctap2_err_no_credentials;
     };
     credential.deinit(auth.allocator);
@@ -239,6 +254,8 @@ pub fn authenticatorGetAssertion(
                     "Authentication: Verification Failed",
                     null,
                     .{ .id = gap.rpId },
+                    auth.allocator,
+                    auth.io,
                 ) != .Accepted) {
                     return fido.ctap.StatusCodes.ctap2_err_operation_denied;
                 }
@@ -249,6 +266,8 @@ pub fn authenticatorGetAssertion(
                     "Authentication: Verification Failed",
                     null,
                     .{ .id = gap.rpId },
+                    auth.allocator,
+                    auth.io,
                 ) != .Accepted) {
                     return fido.ctap.StatusCodes.ctap2_err_operation_denied;
                 }
@@ -360,8 +379,6 @@ pub fn authenticatorGetAssertion(
     var fba = std.heap.FixedBufferAllocator.init(&sig_buffer);
     const allocator = fba.allocator();
 
-    std.debug.print("\n\n=========================\nkey: {x}\n", .{selected_credential.?.key.d.?});
-
     const sig = selected_credential.?.key.sign(
         &.{ ad.get(), &gap.clientDataHash },
         allocator,
@@ -408,7 +425,11 @@ pub fn authenticatorGetAssertion(
         // If the sign count is not updated we don't need to update the
         // credentials DB entry, i.e. shared resident keys (passkeys)
         // are not at risk getting out of sync.
-        auth.callbacks.write(selected_credential.?) catch {
+        auth.callbacks.write(
+            selected_credential.?,
+            auth.allocator,
+            auth.io,
+        ) catch {
             std.log.err("getAssertion: unable to update credential", .{});
             return fido.ctap.StatusCodes.ctap1_err_other;
         };

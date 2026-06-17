@@ -104,14 +104,21 @@ pub fn performBuiltInUv(
 ) BuiltInUvResult {
     _ = self;
 
-    var settings = auth.callbacks.read_settings();
+    var settings = auth.callbacks.read_settings(
+        auth.allocator,
+        auth.io,
+    );
 
     var attemptsBeforeReturning: u8 = if (internalRetry) 3 else 1;
 
     if (auth.clientPinSupported()) |supported| {
         if (supported and settings.pinRetries == 0) {
             settings.uvRetries = 0;
-            auth.callbacks.write_settings(settings);
+            auth.callbacks.write_settings(
+                settings,
+                auth.allocator,
+                auth.io,
+            );
         }
     }
 
@@ -121,13 +128,28 @@ pub fn performBuiltInUv(
 
     while (attemptsBeforeReturning > 0) {
         settings.uvRetries -= 1;
-        auth.callbacks.write_settings(settings);
+        auth.callbacks.write_settings(
+            settings,
+            auth.allocator,
+            auth.io,
+        );
         attemptsBeforeReturning -= 1;
 
-        const authenticated = auth.callbacks.uv.?(info, user, rp, null);
+        const authenticated = auth.callbacks.uv.?(
+            info,
+            user,
+            rp,
+            null,
+            auth.allocator,
+            auth.io,
+        );
         if (authenticated == .Accepted or authenticated == .AcceptedWithUp) {
             settings.uvRetries = 8;
-            auth.callbacks.write_settings(settings);
+            auth.callbacks.write_settings(
+                settings,
+                auth.allocator,
+                auth.io,
+            );
 
             return if (authenticated == .Accepted) .Accepted else .AcceptedWithUp;
         } else if (authenticated == .Timeout) {

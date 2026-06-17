@@ -252,7 +252,10 @@ pub const Auth = struct {
 
     /// Returns true if always uv is enables, false otherwise
     pub fn alwaysUv(self: *@This()) !bool {
-        const settings = self.callbacks.read_settings();
+        const settings = self.callbacks.read_settings(
+            self.allocator,
+            self.io,
+        );
         return settings.always_uv;
     }
 

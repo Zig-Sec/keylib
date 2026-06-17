@@ -245,7 +245,13 @@ pub fn authenticatorMakeCredential(
 
     if (mcp.excludeList) |ecllist| {
         for (ecllist.get()) |item| {
-            const cred = auth.callbacks.read_first(item.id, null, null) catch {
+            const cred = auth.callbacks.read_first(
+                item.id,
+                null,
+                null,
+                auth.allocator,
+                auth.io,
+            ) catch {
                 continue;
             };
             // If the credential was created by this authenticator: Return.
@@ -264,6 +270,8 @@ pub fn authenticatorMakeCredential(
                         "Registration Failed: Credential Excluded",
                         mcp.user,
                         mcp.rp,
+                        auth.allocator,
+                        auth.io,
                     );
                     return fido.ctap.StatusCodes.ctap2_err_credential_excluded;
                 } else {
@@ -283,6 +291,8 @@ pub fn authenticatorMakeCredential(
                             "Registration Failed: Credential Excluded",
                             mcp.user,
                             mcp.rp,
+                            auth.allocator,
+                            auth.io,
                         );
                         return fido.ctap.StatusCodes.ctap2_err_credential_excluded;
                     } else {
@@ -313,6 +323,8 @@ pub fn authenticatorMakeCredential(
                     "Registration: Verification Failed",
                     mcp.user,
                     mcp.rp,
+                    auth.allocator,
+                    auth.io,
                 ) != .Accepted) {
                     return fido.ctap.StatusCodes.ctap2_err_operation_denied;
                 }
@@ -323,6 +335,8 @@ pub fn authenticatorMakeCredential(
                     "Registration: Verification Failed",
                     mcp.user,
                     mcp.rp,
+                    auth.allocator,
+                    auth.io,
                 ) != .Accepted) {
                     return fido.ctap.StatusCodes.ctap2_err_operation_denied;
                 }
@@ -424,7 +438,13 @@ pub fn authenticatorMakeCredential(
         std.log.info("MakeCredential: creating resident key", .{});
         entry.discoverable = true;
 
-        var credential = auth.callbacks.read_first(null, mcp.rp.id, null) catch {
+        var credential = auth.callbacks.read_first(
+            null,
+            mcp.rp.id,
+            null,
+            auth.allocator,
+            auth.io,
+        ) catch {
             break :outer;
         };
 
@@ -443,13 +463,20 @@ pub fn authenticatorMakeCredential(
                 credential.deinit(auth.allocator);
             }
 
-            credential = auth.callbacks.read_next() catch {
+            credential = auth.callbacks.read_next(
+                auth.allocator,
+                auth.io,
+            ) catch {
                 break :outer;
             };
         }
     }
 
-    auth.callbacks.write(entry) catch |err| {
+    auth.callbacks.write(
+        entry,
+        auth.allocator,
+        auth.io,
+    ) catch |err| {
         std.log.err("makeCredential: unable to create credential ({any})", .{err});
         return fido.ctap.StatusCodes.ctap1_err_other;
     };

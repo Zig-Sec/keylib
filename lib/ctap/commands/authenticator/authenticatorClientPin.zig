@@ -44,7 +44,10 @@ pub fn authenticatorClientPin(
     switch (client_pin_param.subCommand) {
         .getPinRetries => {
             std.log.info("getPinRetries", .{});
-            const settings = auth.callbacks.read_settings();
+            const settings = auth.callbacks.read_settings(
+                auth.allocator,
+                auth.io,
+            );
 
             client_pin_response = .{
                 .pinRetries = settings.pinRetries,
@@ -53,7 +56,10 @@ pub fn authenticatorClientPin(
         },
         .getUVRetries => {
             std.log.info("getUVRetries", .{});
-            const settings = auth.callbacks.read_settings();
+            const settings = auth.callbacks.read_settings(
+                auth.allocator,
+                auth.io,
+            );
 
             client_pin_response = .{
                 .uvRetries = settings.uvRetries,
@@ -102,7 +108,10 @@ pub fn authenticatorClientPin(
             }
 
             // 3. If the pinRetries counter is 0, return CTAP2_ERR_PIN_BLOCKED error.
-            var settings = auth.callbacks.read_settings();
+            var settings = auth.callbacks.read_settings(
+                auth.allocator,
+                auth.io,
+            );
 
             if (settings.pinRetries == 0) {
                 return fido.ctap.StatusCodes.ctap2_err_pin_blocked;
@@ -135,7 +144,11 @@ pub fn authenticatorClientPin(
 
             // 6. Authenticator decrements the pinRetries counter by 1.
             settings.pinRetries -= 1;
-            auth.callbacks.write_settings(settings);
+            auth.callbacks.write_settings(
+                settings,
+                auth.allocator,
+                auth.io,
+            );
 
             // 7. Authenticator decrypts pinHashEnc
             // using decrypt(shared secret, pinHashEnc) and verifies against its
@@ -152,6 +165,8 @@ pub fn authenticatorClientPin(
                 null,
                 null,
                 &pinHash,
+                auth.allocator,
+                auth.io,
             );
             switch (authenticated) {
                 .Denied, .Timeout => {
@@ -172,7 +187,11 @@ pub fn authenticatorClientPin(
 
             // 8. Authenticator sets the pinRetries counter to maximum value.
             settings.uvRetries = 8;
-            auth.callbacks.write_settings(settings);
+            auth.callbacks.write_settings(
+                settings,
+                auth.allocator,
+                auth.io,
+            );
 
             // 9. The authenticator calls decrypt(shared secret, newPinEnc) to
             // produce paddedNewPin. If an error results, it returns
@@ -210,7 +229,11 @@ pub fn authenticatorClientPin(
             // TODO: implement force pin change check
 
             settings.force_pin_change = false;
-            auth.callbacks.write_settings(settings);
+            auth.callbacks.write_settings(
+                settings,
+                auth.allocator,
+                auth.io,
+            );
 
             // 17. Authenticator stores LEFT(SHA-256(newPin), 16) internally as the new
             // value of CurrentStoredPIN.
@@ -218,7 +241,11 @@ pub fn authenticatorClientPin(
             var digest: [32]u8 = .{0} ** 32;
             std.crypto.hash.sha2.Sha256.hash(newPin, &digest, .{});
 
-            auth.callbacks.set_pin.?(digest[0..16]) catch |e| {
+            auth.callbacks.set_pin.?(
+                digest[0..16],
+                auth.allocator,
+                auth.io,
+            ) catch |e| {
                 std.log.err("changePin: unable to set new pin ({any})", .{e});
                 return .ctap1_err_other;
             };
@@ -270,7 +297,10 @@ pub fn authenticatorClientPin(
                 return fido.ctap.StatusCodes.ctap2_err_not_allowed;
             }
 
-            const settings = auth.callbacks.read_settings();
+            const settings = auth.callbacks.read_settings(
+                auth.allocator,
+                auth.io,
+            );
 
             if (settings.uvRetries == 0) {
                 return fido.ctap.StatusCodes.ctap2_err_uv_blocked;
@@ -369,7 +399,10 @@ pub fn authenticatorClientPin(
             }
 
             // 5. If the pinRetries counter is 0, return CTAP2_ERR_PIN_BLOCKED error.
-            var settings = auth.callbacks.read_settings();
+            var settings = auth.callbacks.read_settings(
+                auth.allocator,
+                auth.io,
+            );
 
             if (settings.pinRetries == 0) {
                 return fido.ctap.StatusCodes.ctap2_err_pin_blocked;
@@ -386,7 +419,11 @@ pub fn authenticatorClientPin(
 
             // 8. Authenticator decrements the pinRetries counter by 1.
             settings.pinRetries -= 1;
-            auth.callbacks.write_settings(settings);
+            auth.callbacks.write_settings(
+                settings,
+                auth.allocator,
+                auth.io,
+            );
 
             // 9. Authenticator decrypts pinHashEnc using decrypt and verifies
             // against its internally stored CurrentStoredPIN.
@@ -402,6 +439,8 @@ pub fn authenticatorClientPin(
                 null,
                 null,
                 &pinHash,
+                auth.allocator,
+                auth.io,
             );
             switch (authenticated) {
                 .Denied, .Timeout => {
@@ -422,7 +461,11 @@ pub fn authenticatorClientPin(
 
             // 10. Authenticator sets the pinRetries counter to maximum value.
             settings.uvRetries = 8;
-            auth.callbacks.write_settings(settings);
+            auth.callbacks.write_settings(
+                settings,
+                auth.allocator,
+                auth.io,
+            );
 
             // 11. If the value of the forcePINChange member of the
             // authenticatorGetInfo response is true, authenticator
