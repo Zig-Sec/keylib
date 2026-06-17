@@ -18,6 +18,7 @@ This package can serve two purposes:
 2. Add FIDO2/ Passkey support to your application using the client module.
     - We provide a variety of examples [here](example/client/README.md)
     - On linux it might be required to install the `udev` developer package, e.g. `libudev-dev` on Ubuntu.
+3. If you want to add WebAuthn/ Passkey support to your server, check out [passcay](https://github.com/uzyn/passcay) maintained [U-Zyn Chua](https://uzyn.com/)!
 
 > The CTAP2 specification offers a lot of configurations for authenticators. If you're looking for a specific example and can't find it here or run into a bug, consider opening an issue. I'm open to add new features as long as you're also willing to contribute (in some form) to the project.
 
