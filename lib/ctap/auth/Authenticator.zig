@@ -183,10 +183,10 @@ pub const Auth = struct {
         self.token.pinUvAuthTokenUsageTimerObserver(std.Io.Timestamp.now(self.io, .real));
 
         if (request.len > 1) {
-            std.log.info("request({d}): {x}", .{ cmd, request[1..] });
+            std.log.debug("request({d}): {x}", .{ cmd, request[1..] });
         }
 
-        std.log.info("command: {any}", .{cmd});
+        std.log.debug("command: {any}", .{cmd});
 
         for (self.commands) |command| {
             if (command.cmd == cmd) {
@@ -209,7 +209,7 @@ pub const Auth = struct {
             return out[0..1];
         }
 
-        std.log.info("response({d}): {x}", .{ cmd, res.written() });
+        std.log.debug("response({d}): {x}", .{ cmd, res.written() });
         @memcpy(out[0..res.written().len], res.written());
         return out[0..res.written().len];
     }
