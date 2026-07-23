@@ -1,6 +1,6 @@
 .{
     .name = .keylib,
-    .version = "0.10.0-alpha",
+    .version = "0.10.0",
     .fingerprint = 0xc25aabcf9323b699,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
@@ -9,8 +9,8 @@
             .hash = "zbor-0.21.2-kr-CoPkvBAATwJguCrB2vtgXy4Dpsxsc7ZZFroRauAE8",
         },
         .hidapi = .{
-            .url = "https://codeberg.org/r4gus/hidapi/archive/0.2.0.tar.gz",
-            .hash = "hidapi-0.1.1-NHRObrATAADCS4UP65E25v9TsFSMoQ3cQfTk6Ok79zZ4",
+            .url = "https://codeberg.org/r4gus/hidapi/archive/0.2.1.tar.gz",
+            .hash = "hidapi-0.1.1-NHRObq0TAACOjkP9Z4-jOVPqFuz2ZH4nDsy6GmF8464A",
         },
         .uuid = .{
             .url = "https://codeberg.org/r4gus/uuid-zig/archive/0.5.0.tar.gz",
