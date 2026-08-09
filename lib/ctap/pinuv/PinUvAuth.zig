@@ -153,6 +153,12 @@ pub fn performBuiltInUv(
 
             return if (authenticated == .Accepted) .Accepted else .AcceptedWithUp;
         } else if (authenticated == .Timeout) {
+            settings.uvRetries += 1;
+            auth.callbacks.write_settings(
+                settings,
+                auth.allocator,
+                auth.io,
+            );
             return .Timeout;
         }
     }
