@@ -1,6 +1,6 @@
 .{
     .name = .keylib,
-    .version = "0.10.0",
+    .version = "0.10.1",
     .fingerprint = 0xc25aabcf9323b699,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
