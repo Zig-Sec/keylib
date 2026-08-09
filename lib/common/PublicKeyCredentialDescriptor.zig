@@ -10,7 +10,7 @@ const AuthenticatorTransports = fido.common.AuthenticatorTransports;
 const PublicKeyCredentialType = fido.common.PublicKeyCredentialType;
 
 /// The credential id
-id: dt.ABS64B,
+id: dt.ABS128B,
 /// Type of the credential
 type: PublicKeyCredentialType,
 /// Transport methods
@@ -22,7 +22,7 @@ pub fn new(
     transports: ?[]const AuthenticatorTransports,
 ) !@This() {
     return .{
-        .id = (try dt.ABS64B.fromSlice(id)).?,
+        .id = (try dt.ABS128B.fromSlice(id)).?,
         .type = t,
         .transports = try dt.ABSAuthenticatorTransports.fromSlice(transports),
     };

@@ -132,7 +132,7 @@ pub const UvCallback = ?*const fn (
 /// * `id != null` and `rp = null` - Return the entry with the specified `id`. This can be a credential or settings.
 /// * `id = null` and `rp != null` - Return all credentials associated with the given `rp` ID.
 pub const ReadFirstCallback = *const fn (
-    id: ?dt.ABS64B,
+    id: ?dt.ABS128B,
     rp: ?dt.ABS128T,
     hash: ?[32]u8,
     allocator: std.mem.Allocator,

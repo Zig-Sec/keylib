@@ -7,6 +7,7 @@ pub const cbor_commands = @import("client/cbor_commands.zig");
 pub const err = @import("client/error.zig");
 
 pub const ABS64B = keylib.common.dt.ABS64B;
+pub const ABS128B = keylib.common.dt.ABS128B;
 
 pub const cose = cbor.cose;
 pub const User = keylib.common.User;

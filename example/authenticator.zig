@@ -193,7 +193,7 @@ pub fn main(init: std.process.Init) !void {
 // For this example we use a volatile storage solution for our credentials.
 var data_set: std.ArrayListUnmanaged(Credential) = .empty;
 var fetch_index: ?usize = null;
-var fetch_id: ?dt.ABS64B = null;
+var fetch_id: ?dt.ABS128B = null;
 var fetch_rp: ?dt.ABS128T = null;
 
 // /////////////////////////////////////////
@@ -263,7 +263,7 @@ pub fn my_up(
 }
 
 pub fn my_read_first(
-    id: ?dt.ABS64B,
+    id: ?dt.ABS128B,
     rp: ?dt.ABS128T,
     hash: ?[32]u8,
     a: std.mem.Allocator,

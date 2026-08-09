@@ -1423,7 +1423,7 @@ pub const cred_management = struct {
             .subCommand = .deleteCredential,
             .subCommandParams = .{
                 .credentialID = .{
-                    .id = (try keylib.common.dt.ABS64B.fromSlice(credentialId)).?,
+                    .id = (try keylib.common.dt.ABS128B.fromSlice(credentialId)).?,
                     .type = .@"public-key",
                 },
             },

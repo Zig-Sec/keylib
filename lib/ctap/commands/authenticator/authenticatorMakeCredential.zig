@@ -410,7 +410,7 @@ pub fn authenticatorMakeCredential(
     };
 
     var entry = fido.ctap.authenticator.Credential{
-        .id = (dt.ABS64B.fromSlice(&urn) catch unreachable).?,
+        .id = (dt.ABS128B.fromSlice(&urn) catch unreachable).?,
         .user = mcp.user,
         .rp = mcp.rp,
         .sign_count = 0, // the first signature will be included in the response

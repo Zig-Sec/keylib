@@ -4,7 +4,7 @@ const cbor = @import("zbor");
 const dt = fido.common.dt;
 
 /// Credential ID
-id: dt.ABS64B,
+id: dt.ABS128B,
 
 /// User information
 user: fido.common.User,
