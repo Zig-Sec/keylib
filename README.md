@@ -164,13 +164,14 @@ We offer support for operations like __authenticatorMakeCredential__, __authenti
 
 ## Resources
 
-- [CTAP2.0](https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html) - FIDO Alliance
-- [CTAP2.1](https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-errata-20220621.html#intro) - FIDO Alliance
-- [CTAP2.2](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#intro) - FIDO Alliance
-- [WebAuthn](https://www.w3.org/TR/webauthn-3/) - W3C
-- [CBOR RFC8949](https://www.rfc-editor.org/rfc/rfc8949.html) - C. Bormann and P. Hoffman
-- [Credential Exchange Protocol (CXP)](https://fidoalliance.org/specs/cx/cxp-v1.0-wd-20240522.html) - FIDO Alliance
-- [Credential Exchange Format (CXF)](https://fidoalliance.org/specs/cx/cxf-v1.0-ps-20250814.html) - FIDO Alliance
+- [FIDO Specifications](https://fidoalliance.org/specifications/download/)
+    - [CTAP2.0](https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html) - FIDO Alliance
+    - [CTAP2.1](https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-errata-20220621.html#intro) - FIDO Alliance
+    - [CTAP2.2](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#intro) - FIDO Alliance
+    - [WebAuthn](https://www.w3.org/TR/webauthn-3/) - W3C
+    - [CBOR RFC8949](https://www.rfc-editor.org/rfc/rfc8949.html) - C. Bormann and P. Hoffman
+    - [Credential Exchange Protocol (CXP)](https://fidoalliance.org/specs/cx/cxp-v1.0-wd-20240522.html) - FIDO Alliance
+    - [Credential Exchange Format (CXF)](https://fidoalliance.org/specs/cx/cxf-v1.0-ps-20250814.html) - FIDO Alliance
 - Proprietary Credential Exchange APIs
     - [Android (Credential Providerevents)](https://developer.android.com/jetpack/androidx/releases/credentials-providerevents#1.0.0-alpha06)
     - [Apple (ASCredentialExportManager)](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager)
