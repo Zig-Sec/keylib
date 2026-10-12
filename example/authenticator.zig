@@ -36,6 +36,9 @@ pub fn main(init: std.process.Init) !void {
         data_set.deinit(allocator);
     }
 
+    //const rng: std.Random.IoSource = .{ .io = init.io };
+    //var irng = rng.interface();
+
     //// a static credential to work with
     //try data_set.append(.{
     //    .id = "\xb4\x40\xa4\xed\x80\x92\xe6\x9b\x19\x25\x2d\x25\x84\xc2\xa4\xce\x56\x38\x66\xd6\x4d\xb3\x13\x4e\x48\xd6\x1b\xc2\xb9\x32\xae\x23",
@@ -148,7 +151,7 @@ pub fn main(init: std.process.Init) !void {
     // This is the main loop
     while (true) {
         // We read in usb packets with a size of 64 bytes.
-        var buffer: [64]u8 = .{0} ** 64;
+        var buffer: [64]u8 = @splat(0);
         if (u.read(&buffer)) |packet| {
 
             // Those packets are passed to the CTAPHID handler who assembles
@@ -172,6 +175,14 @@ pub fn main(init: std.process.Init) !void {
                 var iter = res.iterator();
                 // Here we iterate over the response packets of our authenticator.
                 while (iter.next()) |p| {
+                    //const p_ = try init.gpa.dupe(u8, p);
+                    //defer init.gpa.free(p_);
+
+                    //if (irng.boolean()) {
+                    //    const i = irng.intRangeAtMost(usize, 0, p.len - 1);
+                    //    p_[i] = irng.int(u8);
+                    //}
+
                     u.write(p) catch {
                         break :blk;
                     };

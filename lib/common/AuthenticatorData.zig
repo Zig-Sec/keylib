@@ -82,7 +82,7 @@ pub fn getCredentialPublicKey(
 }
 
 pub fn decode(data: *std.Io.Reader) !@This() {
-    var rpIdHash: [32]u8 = .{0} ** 32;
+    var rpIdHash: [32]u8 = @splat(0);
     try data.readSliceAll(&rpIdHash);
 
     const flags: Flags = @bitCast(try data.takeByte());
@@ -95,7 +95,7 @@ pub fn decode(data: *std.Io.Reader) !@This() {
         .signCount = signCount,
     };
 
-    var rem_: [1024]u8 = .{0} ** 1024;
+    var rem_: [1024]u8 = @splat(0);
     var rem_len: usize = 0;
     while (true) {
         defer rem_len += 1;
@@ -154,7 +154,7 @@ pub fn encode(self: *const @This()) !dt.ABSAuthenticatorData {
     // is not comptaible with Io.Writer :/ and using the allocator
     // / writer combo as seen above seems to was memory (maybe they
     // reallocate...)
-    var buffer: [1024]u8 = .{0} ** 1024;
+    var buffer: [1024]u8 = @splat(0);
     var fba = std.heap.FixedBufferAllocator.init(&buffer);
     const allocator = fba.allocator();
     var out = std.Io.Writer.Allocating.init(allocator);

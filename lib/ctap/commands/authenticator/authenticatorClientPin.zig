@@ -129,7 +129,7 @@ pub fn authenticatorClientPin(
             const newPinEnc = client_pin_param.newPinEnc.?.get();
             const pinHashEnc = client_pin_param.pinHashEnc.?.get();
 
-            var buffer: [256]u8 = .{0} ** 256;
+            var buffer: [256]u8 = @splat(0);
             const len = newPinEnc.len + pinHashEnc.len;
             @memcpy(buffer[0..newPinEnc.len], newPinEnc);
             @memcpy(buffer[newPinEnc.len..len], pinHashEnc);
@@ -153,7 +153,7 @@ pub fn authenticatorClientPin(
             // 7. Authenticator decrypts pinHashEnc
             // using decrypt(shared secret, pinHashEnc) and verifies against its
             // internal stored LEFT(SHA-256(curPin), 16).
-            var pinHash: [16]u8 = .{0} ** 16; // LEFT(SHA-256(newPin), 16)
+            var pinHash: [16]u8 = @splat(0); // LEFT(SHA-256(newPin), 16)
             auth.token.decrypt(
                 shared_secret.get(),
                 &pinHash,
@@ -201,7 +201,7 @@ pub fn authenticatorClientPin(
             // buffer with something other than 0 because the
             // last byte of the padded pin is 0 and we want to
             // make sure that it is actually null terminated.
-            var paddedNewPin: [64]u8 = .{'a'} ** 64;
+            var paddedNewPin: [64]u8 = @splat('a');
             auth.token.decrypt(
                 shared_secret.get(),
                 &paddedNewPin,
@@ -238,7 +238,7 @@ pub fn authenticatorClientPin(
             // 17. Authenticator stores LEFT(SHA-256(newPin), 16) internally as the new
             // value of CurrentStoredPIN.
 
-            var digest: [32]u8 = .{0} ** 32;
+            var digest: [32]u8 = @splat(0);
             std.crypto.hash.sha2.Sha256.hash(newPin, &digest, .{});
 
             auth.callbacks.set_pin.?(
@@ -427,7 +427,7 @@ pub fn authenticatorClientPin(
 
             // 9. Authenticator decrypts pinHashEnc using decrypt and verifies
             // against its internally stored CurrentStoredPIN.
-            var pinHash: [16]u8 = .{0} ** 16; // LEFT(SHA-256(newPin), 16)
+            var pinHash: [16]u8 = @splat(0); // LEFT(SHA-256(newPin), 16)
             auth.token.decrypt(
                 shared_secret.get(),
                 &pinHash,

@@ -1,9 +1,7 @@
 const std = @import("std");
 const hid = @import("hid.zig");
 
-const uhid = @cImport(
-    @cInclude("linux/uhid.h"),
-);
+const uhid = @import("luhid");
 
 pub fn create(fd: std.Io.File, io: std.Io, device_name: []const u8) !void {
     var event = std.mem.zeroes(uhid.uhid_event);

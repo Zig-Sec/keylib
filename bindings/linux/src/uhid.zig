@@ -2,9 +2,7 @@ const std = @import("std");
 const hid = @import("hid.zig");
 const common = @import("common.zig");
 
-const uhid = @cImport(
-    @cInclude("linux/uhid.h"),
-);
+const uhid = @import("luhid");
 
 const PATH = "/dev/uhid";
 

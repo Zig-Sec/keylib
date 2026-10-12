@@ -34,7 +34,7 @@ pub fn main(init: std.process.Init) !void {
     };
     var origin: []const u8 = "localhost";
     const crossOrigin = false;
-    var uidBuffer: [128]u8 = .{0} ** 128;
+    var uidBuffer: [128]u8 = @splat(0);
     var user_id: []const u8 = &.{
         0x78, 0x1c, 0x78, 0x60, 0xad, 0x88, 0xd2, 0x63,
         0x32, 0x62, 0x2a, 0xf1, 0x74, 0x5d, 0xed, 0xb2,

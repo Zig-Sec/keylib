@@ -4,9 +4,11 @@
 //! using the CTAPHID protocol.
 const std = @import("std");
 
-const hidapi = @cImport({
-    @cInclude("hidapi.h");
-});
+//const hidapi = @cImport({
+//    @cInclude("hidapi.h");
+//});
+
+const hidapi = @import("hidapi");
 
 const Transport = @import("../Transport.zig");
 const Transports = @import("../Transports.zig");
@@ -56,7 +58,7 @@ pub const Usb = struct {
     /// Write a single USB packet to the device
     pub fn write(self: *@This(), out: [64]u8) Transport.Error!void {
         // first byte is the report number
-        var o: [65]u8 = .{0} ** 65;
+        var o: [65]u8 = @splat(0);
         @memcpy(o[1..], out[0..]);
 
         // Open the device if not already done
@@ -71,7 +73,7 @@ pub const Usb = struct {
 
     /// Read a single USB packet from the device
     pub fn read(self: *@This(), out: *[64]u8, cid: u32) Transport.Error!usize {
-        var x: [65]u8 = .{0} ** 65;
+        var x: [65]u8 = @splat(0);
 
         // Open the device if not already done
         if (self.device == null) {
@@ -157,7 +159,7 @@ pub fn enumerate(a: std.mem.Allocator, io: std.Io) Transports.Error!?[]Transport
         if (devices.*.usage_page == 0xf1d0 and devices.*.usage == 0x01) {
             const u = try a.create(Usb);
             u.* = Usb{
-                .path = try a.dupeZ(u8, to_str(devices.*.path)),
+                .path = try a.dupeSentinel(u8, to_str(devices.*.path), 0),
                 .manufacturer = try a.dupe(u8, wchar_t_to_str(devices.*.manufacturer_string)),
                 .product = try a.dupe(u8, wchar_t_to_str(devices.*.product_string)),
                 .allocator = a,

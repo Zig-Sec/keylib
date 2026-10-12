@@ -1,24 +1,28 @@
 .{
     .name = .keylib,
-    .version = "0.11.0-alpha",
+    .version = "0.11.0",
     .fingerprint = 0xc25aabcf9323b699,
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{
         .zbor = .{
-            .url = "git+https://codeberg.org/r4gus/zbor?ref=cose#4693e9a533eae924d469ade34b75a2ff6d82218e",
-            .hash = "zbor-0.21.2-kr-CoPkvBAATwJguCrB2vtgXy4Dpsxsc7ZZFroRauAE8",
+            .url = "https://codeberg.org/r4gus/zbor/archive/0.23.0.tar.gz",
+            .hash = "zbor-0.23.0-kr-CoKE1BACmAxW7UOhhNNMekDYMNGsoyKai6zpoSjmO",
         },
         .hidapi = .{
-            .url = "https://codeberg.org/r4gus/hidapi/archive/0.2.1.tar.gz",
-            .hash = "hidapi-0.1.1-NHRObq0TAACOjkP9Z4-jOVPqFuz2ZH4nDsy6GmF8464A",
+            .url = "git+https://codeberg.org/r4gus/hidapi#92cd9c9dfd37bfd94d87095d31483cab30d9dcfbfdd461e19be9611795b16a32",
+            .hash = "hidapi-0.3.0-NHRObgANAADHPmaiSsM5EBzz1VjXKFhkK8ooTwGhWmic",
         },
         .uuid = .{
-            .url = "https://codeberg.org/r4gus/uuid-zig/archive/0.5.0.tar.gz",
-            .hash = "uuid-0.5.0-oOieIQx-AABtc9U3ihv_bf9pZAYoKp4UMsNFHBr-cn-w",
+            .url = "https://codeberg.org/r4gus/uuid-zig/archive/0.7.0.tar.gz",
+            .hash = "uuid-0.7.0-oOieIcagAABw5U255XPVd__vLuCZetL_ZN18vPM86Yk4",
         },
         .clap = .{
-            .url = "git+https://github.com/Hejsil/zig-clap#fc1e5cc3f6d9d3001112385ee6256d694e959d2f",
-            .hash = "clap-0.11.0-oBajB7foAQC3Iyn4IVCkUdYaOVVng5IZkSncySTjNig1",
+            .url = "git+https://github.com/Hejsil/zig-clap#05faf3905e8548f5cc269a8836e154065e70128d",
+            .hash = "clap-0.12.0-oBajB4XpAQCF1WRKnD5KOKPsnwwT_NNdAJ7Ww3irYJac",
+        },
+        .translate_c = .{
+            .url = "git+https://codeberg.org/ziglang/translate-c?ref=zig-0.17.x#f978dca0f2b2a782d06591989e80aae7c74d0183",
+            .hash = "translate_c-2.0.1-Q_BUWmVOBwDWdxpDb7n6-LpMznKteZvXbL_4r6DxB2_d",
         },
     },
     .paths = .{

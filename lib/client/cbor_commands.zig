@@ -543,7 +543,7 @@ pub const credentials = struct {
                 0x22 => try out.writeAll(&.{ 0x5c, 0x22 }),
                 0x5c => try out.writeAll(&.{ 0x5c, 0x5c }),
                 else => {
-                    var tmp: [4]u8 = .{0} ** 4;
+                    var tmp: [4]u8 = @splat(0);
                     @memcpy(tmp[0..l], in[i .. i + l]);
                     try out.writeAll(&.{ 0x5c, 0x75 });
                     try out.print("{x:2}{x:2}{x:2}{x:2}", .{ tmp[3], tmp[2], tmp[1], tmp[0] });
@@ -692,14 +692,14 @@ pub const client_pin = struct {
         };
         defer request.keyAgreement.?.deinit(a);
 
-        var paddedPin: [64]u8 = .{0} ** 64;
+        var paddedPin: [64]u8 = @splat(0);
         @memcpy(paddedPin[0..newPin.len], newPin);
 
         var _newPinEnc: [80]u8 = undefined;
         switch (e.version) {
             .V1 => {
                 // Encrypt PIN hash
-                const iv: [16]u8 = .{0} ** 16;
+                const iv: [16]u8 = @splat(0);
 
                 // Encrypt padded PIN
                 PinUvAuth._encrypt(
@@ -782,7 +782,7 @@ pub const client_pin = struct {
         // Who the fuck would just use half of an hash!?!
         const pin_hash_left = pin_hash[0..16];
 
-        var paddedPin: [64]u8 = .{0} ** 64;
+        var paddedPin: [64]u8 = @splat(0);
         @memcpy(paddedPin[0..newPin.len], newPin);
 
         var @"newPinEnc || pinHashEnc": std.ArrayListUnmanaged(u8) = .empty;
@@ -796,7 +796,7 @@ pub const client_pin = struct {
         switch (e.version) {
             .V1 => {
                 // Encrypt PIN hash
-                const iv: [16]u8 = .{0} ** 16;
+                const iv: [16]u8 = @splat(0);
                 PinUvAuth._encrypt(
                     iv,
                     e.shared_secret.get()[0..32].*,
@@ -896,7 +896,7 @@ pub const client_pin = struct {
         var pinHashEnc: []u8 = undefined;
         switch (e.version) {
             .V1 => {
-                const iv: [16]u8 = .{0} ** 16;
+                const iv: [16]u8 = @splat(0);
                 PinUvAuth._encrypt(
                     iv,
                     e.shared_secret.get()[0..32].*,
@@ -989,7 +989,7 @@ pub const client_pin = struct {
         var pinHashEnc: []u8 = undefined;
         switch (e.version) {
             .V1 => {
-                const iv: [16]u8 = .{0} ** 16;
+                const iv: [16]u8 = @splat(0);
                 PinUvAuth._encrypt(
                     iv,
                     e.shared_secret.get()[0..32].*,

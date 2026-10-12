@@ -26,7 +26,7 @@ pub fn main(init: std.process.Init) !void {
 
     var hms: bool = false;
     var pin: ?[]const u8 = null;
-    var credIdBuffer: [64]u8 = .{0} ** 64;
+    var credIdBuffer: [64]u8 = @splat(0);
     var credId: ?[]const u8 = null;
 
     const params = comptime clap.parseParamsComptime(
@@ -63,7 +63,7 @@ pub fn main(init: std.process.Init) !void {
 
     const device_index = try std.fmt.parseInt(usize, res.positionals[0][0], 0);
     const origin = res.positionals[0][1];
-    var keyBuffer: [512]u8 = .{0} ** 512;
+    var keyBuffer: [512]u8 = @splat(0);
     const raw_key = try std.fmt.hexToBytes(&keyBuffer, res.positionals[0][2]);
 
     const pub_key = std.crypto.sign.ecdsa.EcdsaP256Sha256.PublicKey.fromSec1(raw_key) catch {

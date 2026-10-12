@@ -61,7 +61,7 @@ pub const HmacSecretGet = struct {
 
         if (self.saltEnc.len == 64) {
             // Decrypt saltEnc to obtain
-            var @"salt1 || salt2": [64]u8 = .{0} ** 64;
+            var @"salt1 || salt2": [64]u8 = @splat(0);
             auth.token.decrypt(
                 shared_secret.get(),
                 &@"salt1 || salt2",

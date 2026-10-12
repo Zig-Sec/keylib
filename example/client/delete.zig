@@ -61,7 +61,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     const device_index = try std.fmt.parseInt(usize, res.positionals[0][0], 0);
-    var credIdBuffer: [64]u8 = .{0} ** 64;
+    var credIdBuffer: [64]u8 = @splat(0);
     const credId = try std.fmt.hexToBytes(
         &credIdBuffer,
         res.positionals[0][1],

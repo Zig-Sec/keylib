@@ -1,6 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const Translator = @import("translate_c").Translator;
+
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -8,6 +10,8 @@ pub fn build(b: *std.Build) !void {
     // ++++++++++++++++++++++++++++++++++++++++++++
     // Dependencies
     // ++++++++++++++++++++++++++++++++++++++++++++
+
+    const translate_c = b.dependency("translate_c", .{});
 
     const zbor_dep = b.dependency("zbor", .{
         .target = target,
@@ -50,12 +54,22 @@ pub fn build(b: *std.Build) !void {
 
     var uhid_module_exists: bool = false;
     const uhid_module = if (target.result.os.tag == .linux) blk: {
+        const trans_uhid: Translator = .init(translate_c, .{
+            .c_source_file = b.addWriteFiles().add("luhid.h",
+                \\#include <linux/uhid.h>
+            ),
+            .target = target,
+            .optimize = optimize,
+        });
+
         uhid_module_exists = true;
         const uhid_module = b.addModule("uhid", .{
             .root_source_file = b.path("bindings/linux/src/uhid.zig"),
-            .imports = &.{},
             .target = target,
             .optimize = optimize,
+            .imports = &.{
+                .{ .name = "luhid", .module = trans_uhid.mod },
+            },
         });
         break :blk uhid_module;
     } else blk: {
@@ -72,16 +86,28 @@ pub fn build(b: *std.Build) !void {
     // Client Module
     // ------------------------------------------------
 
+    const trans_hidapi: Translator = .init(translate_c, .{
+        .c_source_file = b.addWriteFiles().add("c.h",
+            \\#include <hidapi.h>
+        ),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    trans_hidapi.linkLibrary(hidapi_dep.artifact("hidapi"));
+
     const client_module = b.addModule("clientlib", .{
         .root_source_file = b.path("lib/client.zig"),
         .imports = &.{
             .{ .name = "zbor", .module = zbor_module },
             .{ .name = "keylib", .module = keylib_module },
+            .{ .name = "hidapi", .module = trans_hidapi.mod },
         },
         .target = target,
         .optimize = optimize,
     });
-    client_module.linkLibrary(hidapi_dep.artifact("hidapi"));
+
+    //client_module.linkLibrary(hidapi_dep.artifact("hidapi"));
 
     // Examples
     // ------------------------------------------------

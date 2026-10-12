@@ -317,7 +317,7 @@ pub fn encrypt_v1(
     demPlaintext: []const u8,
 ) void {
     _ = self;
-    const iv: [16]u8 = .{0} ** 16;
+    const iv: [16]u8 = @splat(0);
     _encrypt(iv, key[0..32].*, out, demPlaintext);
 }
 
@@ -327,7 +327,7 @@ pub fn decrypt_v1(
     out: []u8,
     demCiphertext: []const u8,
 ) void {
-    var iv: [16]u8 = .{0} ** 16;
+    var iv: [16]u8 = @splat(0);
     var ctx = Aes256.initDec(key[0..32].*);
 
     var i: usize = 0;
