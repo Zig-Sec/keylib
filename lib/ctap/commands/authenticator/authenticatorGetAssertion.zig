@@ -12,10 +12,17 @@ pub fn authenticatorGetAssertion(
     const di = cbor.DataItem.new(request) catch {
         return .ctap2_err_invalid_cbor;
     };
-    const gap = cbor.parse(fido.ctap.request.GetAssertion, di, .{}) catch {
+    const gap = cbor.parse(
+        fido.ctap.request.GetAssertion,
+        di,
+        .{
+            .allocator = auth.allocator,
+        },
+    ) catch {
         std.log.err("unable to map request to `GetAssertion` data type", .{});
         return .ctap2_err_invalid_cbor;
     };
+    defer gap.deinit(auth.allocator);
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     // 1. and 2. Verify pinUvAuthParam
@@ -285,18 +292,31 @@ pub fn authenticatorGetAssertion(
     // 10. Process extensions
     // ++++++++++++++++++++++++++++++++++++++++++++++++
 
-    var @"hmac-secret": ?fido.common.dt.ABS64B = null;
+    var @"hmac-secret": ?fido.common.dt.ABS80B = null;
     if (gap.extensions) |extensions| {
         if (extensions.@"hmac-secret") |hms| {
             switch (hms) {
                 .get => |hmsget| {
                     var stat: fido.ctap.StatusCodes = .ctap1_err_success;
 
+                    // We don't support pinUv version 1 with this impl, this
+                    // means the client MUST provide the pinUvAuthProtocol
+                    // version with the extension request.
+                    if (hmsget.pinUvAuthProtocol == null or hmsget.pinUvAuthProtocol.? != .V2) {
+                        return .ctap2_err_pin_auth_invalid;
+                    }
+
+                    // If "up" is set to false, authenticator returns
+                    // CTAP2_ERR_UNSUPPORTED_OPTION
+                    if (!up) {
+                        return .ctap2_err_unsupported_option;
+                    }
+
                     @"hmac-secret" = hmsget.generate(
                         &stat,
                         auth,
                         &selected_credential.?,
-                        uv_response,
+                        uv_response, // uv is checked internally
                     );
 
                     if (stat != .ctap1_err_success) {
@@ -352,6 +372,7 @@ pub fn authenticatorGetAssertion(
         auth_data.extensions = .{
             .@"hmac-secret" = .{ .output = hms },
         };
+        auth_data.flags.ed = 1;
     }
 
     std.crypto.hash.sha2.Sha256.hash( // calculate rpId hash

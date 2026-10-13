@@ -128,6 +128,8 @@ pub fn build(b: *std.Build) !void {
         .{ "example/client/delete.zig", "delete" },
         .{ "example/client/assert.zig", "assert" },
         .{ "example/web/py_webauthn/client/main.zig", "py_webauthn_client" },
+        .{ "example/tools/decode-mc.zig", "decode-mc" },
+        .{ "example/tools/decode-ga.zig", "decode-ga" },
     };
 
     for (client_examples) |entry| {
@@ -144,6 +146,10 @@ pub fn build(b: *std.Build) !void {
             .root_module = ce_mod,
         });
         ce.root_module.addImport("client", client_module);
+
+        if (std.mem.eql(u8, "decode-mc", name) or std.mem.eql(u8, "decode-ga", name)) {
+            ce.root_module.addImport("zbor", zbor_module);
+        }
 
         ce.root_module.addImport("clap", clap_dep.module("clap"));
 

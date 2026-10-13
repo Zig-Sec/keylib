@@ -73,7 +73,10 @@ pub fn main(init: std.process.Init) !void {
             },
             // The extensions are defined as strings which should make it easy to extend
             // the authenticator (in combination with a new command).
-            .extensions = &.{ "credProtect", "federationId" },
+            .extensions = &.{
+                "credProtect",
+                "hmac-secret",
+            },
             // This should be unique for all models of the same authenticator.
             .aaguid = "\x6f\x15\x82\x74\xaa\xb6\x44\x3d\x9b\xcf\x8a\x3f\x69\x29\x7c\x88".*,
             .options = .{

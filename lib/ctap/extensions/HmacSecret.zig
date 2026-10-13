@@ -14,7 +14,7 @@ pub const HmacSecretGet = struct {
     /// using the shared secret as follows:
     ///     One salt case: encrypt(shared secret, salt1)
     ///     Two salt case: encrypt(shared secret, salt1 || salt2)
-    saltEnc: dt.ABS64B,
+    saltEnc: dt.ABS80B,
     /// authenticate(shared secret, saltEnc)
     saltAuth: dt.ABS32B,
     /// As selected when getting the shared secret. CTAP2.1 platforms MUST include this
@@ -27,7 +27,7 @@ pub const HmacSecretGet = struct {
         auth: *fido.ctap.authenticator.Auth,
         cred: *const fido.ctap.authenticator.Credential,
         uv: bool,
-    ) ?dt.ABS64B {
+    ) ?dt.ABS80B {
         // Call decapsulate on the provided platform key-agreement key
         const shared_secret = auth.token.ecdh(self.keyAgreement) catch {
             status.* = fido.ctap.StatusCodes.ctap1_err_invalid_parameter;
@@ -35,7 +35,7 @@ pub const HmacSecretGet = struct {
         };
 
         // Verify saltEnc with the siganture saltAuth
-        if (auth.token.verify( // salt1 || salt2
+        if (!auth.token.verify( // salt1 || salt2
             shared_secret.get(),
             self.saltEnc.get(),
             self.saltAuth.get(),
@@ -44,12 +44,18 @@ pub const HmacSecretGet = struct {
             return null;
         }
 
-        var r: ?dt.ABS64B = null;
+        var r: ?dt.ABS80B = null;
 
+        // The authenticator chooses which CredRandom to use for next step
+        // based on whether user verification was done or not in above steps.
         var cred_random: []const u8 = undefined;
         if (uv and cred.cred_random_with_uv != null) {
+            // If uv bit is set to 1 in the response, let CredRandom
+            // be CredRandomWithUV
             cred_random = cred.cred_random_with_uv.?[0..];
         } else if (!uv and cred.cred_random_without_uv != null) {
+            // If uv bit is set to 0 in the response, let CredRandom
+            // be CredRandomWithoutUV.
             cred_random = cred.cred_random_without_uv.?[0..];
         } else {
             // If the authenticator cannot find corresponding CredRandom
@@ -59,7 +65,7 @@ pub const HmacSecretGet = struct {
             return null;
         }
 
-        if (self.saltEnc.len == 64) {
+        if (self.saltEnc.len == (64 + 16)) {
             // Decrypt saltEnc to obtain
             var @"salt1 || salt2": [64]u8 = @splat(0);
             auth.token.decrypt(
@@ -81,7 +87,7 @@ pub const HmacSecretGet = struct {
             @memcpy(in[0..32], output1[0..]);
             @memcpy(in[32..], output2[0..]);
 
-            var out: [64]u8 = undefined;
+            var out: [80]u8 = undefined;
             auth.token.encrypt(
                 &auth.token,
                 shared_secret.get(),
@@ -89,8 +95,8 @@ pub const HmacSecretGet = struct {
                 &in,
             );
 
-            r = dt.ABS64B.fromSlice(&out) catch unreachable;
-        } else if (self.saltEnc.len == 32) {
+            r = dt.ABS80B.fromSlice(&out) catch unreachable;
+        } else if (self.saltEnc.len == (32 + 16)) {
             // Decrypt saltEnc to obtain
             var salt1: [32]u8 = undefined;
             auth.token.decrypt(
@@ -102,7 +108,7 @@ pub const HmacSecretGet = struct {
             var output1: [32]u8 = undefined;
             HmacSha256.create(output1[0..32], &salt1, cred_random);
 
-            var out: [32]u8 = undefined;
+            var out: [48]u8 = undefined;
             auth.token.encrypt(
                 &auth.token,
                 shared_secret.get(),
@@ -110,7 +116,7 @@ pub const HmacSecretGet = struct {
                 &output1,
             );
 
-            r = dt.ABS64B.fromSlice(&out) catch unreachable;
+            r = dt.ABS80B.fromSlice(&out) catch unreachable;
         } else {
             status.* = .ctap1_err_invalid_parameter;
             return null;
@@ -118,12 +124,6 @@ pub const HmacSecretGet = struct {
 
         return r;
     }
-};
-
-pub const HmacSecret = union(HmacSecretTag) {
-    create: bool,
-    get: HmacSecretGet,
-    output: dt.ABS64B,
 
     pub fn cborStringify(self: *const @This(), options: cbor.Options, out: *std.Io.Writer) !void {
         _ = options;
@@ -151,4 +151,10 @@ pub const HmacSecret = union(HmacSecretTag) {
             .ignore_override = true,
         });
     }
+};
+
+pub const HmacSecret = union(HmacSecretTag) {
+    create: bool,
+    get: HmacSecretGet,
+    output: dt.ABS80B,
 };

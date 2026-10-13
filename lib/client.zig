@@ -15,6 +15,7 @@ pub const RelyingParty = keylib.common.RelyingParty;
 pub const MakeCredentialRequestParams = keylib.ctap.request.MakeCredential;
 pub const PublicKeyCredentialParameters = keylib.common.PublicKeyCredentialParameters;
 pub const ABSPublicKeyCredentialParameters = keylib.common.dt.ABSPublicKeyCredentialParameters;
+pub const AuthenticatorData = keylib.common.AuthenticatorData;
 
 /// The CTAP2 authenticatorGetInfo (0x04) command
 pub const getInfo = cbor_commands.authenticatorGetInfo;
@@ -106,4 +107,5 @@ pub const web = @import("web.zig");
 
 test "Library tests" {
     _ = web;
+    _ = cbor_commands;
 }

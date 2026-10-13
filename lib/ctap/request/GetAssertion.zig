@@ -17,7 +17,7 @@ clientDataHash: ClientDataHash, // 2
 /// present and has 1 or more entries, the authenticator MUST only generate
 /// an assertion using one of the denoted credentials.
 allowList: ?dt.ABSPublicKeyCredentialDescriptor = null, // 3
-extensions: ?fido.ctap.extensions.Extensions = null,
+extensions: ?fido.ctap.extensions.Extensions = null, // 4
 /// Parameters to influence authenticator operation.
 options: ?fido.common.AuthenticatorOptions = null, // 5
 /// Result of calling authenticate(pinUvAuthToken, clientDataHash)
@@ -26,6 +26,19 @@ pinUvAuthParam: ?PinUvAuthParam = null, // 6
 pinUvAuthProtocol: ?PinProtocol = null,
 enterpriseAttestation: ?u64 = null,
 attestationFormatsPreference: ?dt.ABSAttestationStatementFormatIdentifiers = null,
+
+pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
+    if (self.extensions) |exts| {
+        if (exts.@"hmac-secret") |hms| {
+            switch (hms) {
+                .get => |hms_get| {
+                    hms_get.keyAgreement.deinit(allocator);
+                },
+                else => {},
+            }
+        }
+    }
+}
 
 pub fn requestsUv(self: *const @This()) bool {
     return self.options != null and self.options.?.uv != null and self.options.?.uv.?;
@@ -48,6 +61,7 @@ pub fn cborStringify(self: *const @This(), options: cbor.Options, out: *std.Io.W
             .{ .name = "rpId", .field_options = .{ .alias = "1", .serialization_type = .Integer }, .value_options = .{ .slice_serialization_type = .TextString } },
             .{ .name = "clientDataHash", .field_options = .{ .alias = "2", .serialization_type = .Integer } },
             .{ .name = "allowList", .field_options = .{ .alias = "3", .serialization_type = .Integer } },
+            .{ .name = "extensions", .field_options = .{ .alias = "4", .serialization_type = .Integer } },
             .{ .name = "options", .field_options = .{ .alias = "5", .serialization_type = .Integer } },
             .{ .name = "pinUvAuthParam", .field_options = .{ .alias = "6", .serialization_type = .Integer } },
             .{ .name = "pinUvAuthProtocol", .field_options = .{ .alias = "7", .serialization_type = .Integer }, .value_options = .{ .enum_serialization_type = .Integer } },
@@ -65,6 +79,7 @@ pub fn cborParse(item: cbor.DataItem, options: cbor.Options) !@This() {
             .{ .name = "rpId", .field_options = .{ .alias = "1", .serialization_type = .Integer }, .value_options = .{ .slice_serialization_type = .TextString } },
             .{ .name = "clientDataHash", .field_options = .{ .alias = "2", .serialization_type = .Integer } },
             .{ .name = "allowList", .field_options = .{ .alias = "3", .serialization_type = .Integer } },
+            .{ .name = "extensions", .field_options = .{ .alias = "4", .serialization_type = .Integer } },
             .{ .name = "options", .field_options = .{ .alias = "5", .serialization_type = .Integer } },
             .{ .name = "pinUvAuthParam", .field_options = .{ .alias = "6", .serialization_type = .Integer } },
             .{ .name = "pinUvAuthProtocol", .field_options = .{ .alias = "7", .serialization_type = .Integer }, .value_options = .{ .enum_serialization_type = .Integer } },
@@ -114,4 +129,19 @@ test "get assertion stringify 1" {
     try cbor.stringify(gap, .{}, &x.writer);
 
     try std.testing.expectEqualSlices(u8, payload, x.written());
+}
+
+test "get assertion parse 2" {
+    const payload = "\xa6\x01\x78\x2e\x77\x65\x62\x61\x75\x74\x68\x6e\x2d\x70\x61\x73\x73\x6b\x65\x79\x73\x2d\x70\x72\x66\x2d\x64\x65\x6d\x6f\x2e\x65\x78\x70\x6c\x6f\x72\x65\x2e\x63\x6f\x72\x62\x61\x64\x6f\x2e\x63\x6f\x6d\x02\x58\x20\x0d\xcc\xa3\x8c\xa4\xde\xd1\x73\x1c\xb6\x54\x3d\xe3\x47\x92\xe3\x19\xe4\x8d\xa2\xbc\x1f\x8d\x45\x14\x78\x67\x26\x80\x77\xdd\xa4\x03\x81\xa2\x62\x69\x64\x58\x24\x30\x31\x61\x31\x33\x31\x61\x62\x2d\x39\x61\x65\x38\x2d\x37\x37\x63\x66\x2d\x61\x66\x32\x33\x2d\x36\x33\x66\x64\x63\x66\x34\x39\x65\x31\x37\x39\x64\x74\x79\x70\x65\x6a\x70\x75\x62\x6c\x69\x63\x2d\x6b\x65\x79\x04\xa1\x6b\x68\x6d\x61\x63\x2d\x73\x65\x63\x72\x65\x74\xa4\x01\xa5\x01\x02\x03\x38\x18\x20\x01\x21\x58\x20\x1b\x98\xe4\x93\x04\xa2\xd7\x5b\x22\x9d\x94\x06\xff\x7d\xe0\x78\xd5\xb7\x1b\xa6\x81\x0a\x48\x4e\xf7\xfe\x3f\xc6\xbf\x23\xcb\x18\x22\x58\x20\xf4\xe1\x34\xd4\x17\x80\xc7\xa9\xc7\xcb\xd1\x05\xd8\x64\x01\x5b\xde\xb6\x94\x35\xd1\x7d\xa9\x88\xce\x84\x82\xb2\x90\xb6\xb4\x1c\x02\x58\x30\xa3\xe9\xa5\x16\xba\x52\x4e\xd8\x73\x7d\x4d\x41\x8c\x29\xfd\x1e\xf7\x79\x6d\x73\x77\xfd\x0c\x90\xf8\x21\x54\x21\xe9\xdf\x81\x4e\xaa\xbf\x11\xc6\x3d\xd4\x40\x06\x33\x5f\x38\xef\x66\x09\xd3\x03\x03\x58\x20\xa2\xca\x34\xb3\x2d\x39\xd2\x26\x97\xc9\x82\xc2\xd8\xe2\xc9\x3f\x1e\x0c\xcf\xad\x45\xef\x3d\xe5\xca\x80\x1a\x65\x97\x80\xdd\x4d\x04\x02\x06\x58\x20\xd2\xf1\xb1\xa9\x4d\x76\xec\x76\x56\x9d\x92\x7f\x42\x26\xcf\xcb\x56\x92\xbb\xc1\x59\x58\xca\x1f\x07\x7f\xd7\x30\xa7\xcf\xd4\xcb\x07\x02";
+
+    const di = try cbor.DataItem.new(payload);
+
+    const get_assertion_param = try cbor.parse(@This(), di, .{
+        .allocator = std.testing.allocator,
+    });
+    defer get_assertion_param.deinit(std.testing.allocator);
+
+    try std.testing.expectEqualSlices(u8, "\xa3\xe9\xa5\x16\xba\x52\x4e\xd8\x73\x7d\x4d\x41\x8c\x29\xfd\x1e\xf7\x79\x6d\x73\x77\xfd\x0c\x90\xf8\x21\x54\x21\xe9\xdf\x81\x4e\xaa\xbf\x11\xc6\x3d\xd4\x40\x06\x33\x5f\x38\xef\x66\x09\xd3\x03", get_assertion_param.extensions.?.@"hmac-secret".?.get.saltEnc.get());
+
+    try std.testing.expectEqualSlices(u8, "\xa2\xca\x34\xb3\x2d\x39\xd2\x26\x97\xc9\x82\xc2\xd8\xe2\xc9\x3f\x1e\x0c\xcf\xad\x45\xef\x3d\xe5\xca\x80\x1a\x65\x97\x80\xdd\x4d", get_assertion_param.extensions.?.@"hmac-secret".?.get.saltAuth.get());
 }
