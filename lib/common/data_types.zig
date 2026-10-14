@@ -24,4 +24,4 @@ pub const ABSAuthenticatorTransports = cbor.ArrayBackedSlice(6, AuthenticatorTra
 pub const ABSPublicKeyCredentialDescriptor = cbor.ArrayBackedSlice(6, PublicKeyCredentialDescriptor, .Other);
 pub const ABSAttestationStatementFormatIdentifiers = cbor.ArrayBackedSlice(6, AttestationStatementFormatIdentifiers, .Other);
 pub const ABSPublicKeyCredentialParameters = cbor.ArrayBackedSlice(6, PublicKeyCredentialParameters, .Other);
-pub const ABSAuthenticatorData = cbor.ArrayBackedSlice(256, u8, .Byte);
+pub const ABSAuthenticatorData = cbor.ArrayBackedSlice(512, u8, .Byte);

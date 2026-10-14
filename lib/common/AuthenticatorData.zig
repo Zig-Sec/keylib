@@ -154,7 +154,7 @@ pub fn encode(self: *const @This()) !dt.ABSAuthenticatorData {
     // is not comptaible with Io.Writer :/ and using the allocator
     // / writer combo as seen above seems to was memory (maybe they
     // reallocate...)
-    var buffer: [1024]u8 = @splat(0);
+    var buffer: [2048]u8 = @splat(0);
     var fba = std.heap.FixedBufferAllocator.init(&buffer);
     const allocator = fba.allocator();
     var out = std.Io.Writer.Allocating.init(allocator);

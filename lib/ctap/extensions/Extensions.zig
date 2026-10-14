@@ -13,6 +13,7 @@ credProtect: ?fido.ctap.extensions.CredentialCreationPolicy = null,
 /// and the platform each only have the part of the complete secret to prevent
 /// offline attacks.
 @"hmac-secret": ?fido.ctap.extensions.HmacSecret = null,
+@"hmac-secret-mc": ?fido.ctap.extensions.HmacSecret = null,
 
 pub fn cborStringify(self: *const @This(), options: cbor.Options, out: anytype) !void {
     return cbor.stringify(self, .{

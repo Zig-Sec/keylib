@@ -35,6 +35,28 @@ pinUvAuthParam: ?PinUvAuthParam = null,
 pinUvAuthProtocol: ?PinProtocol = null,
 enterpriseAttestation: ?u64 = null,
 
+pub fn deinit(self: *const @This(), allocator: std.mem.Allocator) void {
+    if (self.extensions) |exts| {
+        if (exts.@"hmac-secret") |hms| {
+            switch (hms) {
+                .get => |hms_get| {
+                    hms_get.keyAgreement.deinit(allocator);
+                },
+                else => {},
+            }
+        }
+
+        if (exts.@"hmac-secret-mc") |hms| {
+            switch (hms) {
+                .get => |hms_get| {
+                    hms_get.keyAgreement.deinit(allocator);
+                },
+                else => {},
+            }
+        }
+    }
+}
+
 pub fn requestsUv(self: *const @This()) bool {
     return self.options != null and self.options.?.uv != null and self.options.?.uv.?;
 }

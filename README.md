@@ -14,6 +14,7 @@ This package can serve two purposes:
         - [passkey.org](https://passkey.org)
         - [webauthn.io](https://webauthn.io/)
         - [passkeys.io](https://www.passkeys.io/)
+        - [Corbado PRF (hmac-secret) test site](https://webauthn-passkeys-prf-demo.explore.corbado.com)
     - but you can also use the library on embedded devices, e.g. to create your own security key (similar to YubiKey, SoloKey, ...)
 2. Add FIDO2/ Passkey support to your application using the client module.
     - We provide a variety of examples [here](example/client/README.md)
@@ -27,7 +28,8 @@ This package can serve two purposes:
 | 0.13.0      | 0.5.0, 0.5.1, 0.5.2, 0.5.3 |
 | 0.14.x      | 0.6.0, 0.6.1 |
 | 0.15.x      | 0.7.0, 0.8.0 |
-| 0.16.x      | master |
+| 0.16.x      | 0.9.x, 0.10.x |
+| 0.17.x      | 0.11.x |
 
 ## Getting Started
 

@@ -18,10 +18,13 @@ pub fn authenticatorMakeCredential(
         std.log.err("authenticatorMakeCredential: invalid data item ({any})", .{e});
         return .ctap2_err_invalid_cbor;
     };
-    const mcp = cbor.parse(fido.ctap.request.MakeCredential, di, .{}) catch |e| {
+    const mcp = cbor.parse(fido.ctap.request.MakeCredential, di, .{
+        .allocator = auth.allocator,
+    }) catch |e| {
         std.log.err("unable to map request to `MakeCredential` data type ({any})", .{e});
         return .ctap2_err_invalid_cbor;
     };
+    defer mcp.deinit(auth.allocator);
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++
     // 1. and 2. Verify pinUvAuthParam
@@ -373,6 +376,8 @@ pub fn authenticatorMakeCredential(
             switch (hms) {
                 .create => |create_hms| {
                     if (create_hms) { // Platform request creation of an HMAC secret
+                        std.log.info("creating hmac-secret values", .{});
+
                         // Create two random 32-byte values using CSPRNG
                         var k1: [32]u8 = undefined;
                         var k2: [32]u8 = undefined;
@@ -485,6 +490,51 @@ pub fn authenticatorMakeCredential(
     // 19. Create attestation statement
     // ++++++++++++++++++++++++++++++++++++++++++++++++
 
+    // Process `hmac-secret-mc` extension
+    if (mcp.extensions) |exts| {
+        if (exts.@"hmac-secret-mc") |hms| {
+            switch (hms) {
+                .get => |hmsget| {
+                    std.log.info("generating hmac-secret-mc", .{});
+
+                    var stat: fido.ctap.StatusCodes = .ctap1_err_success;
+
+                    // We don't support pinUv version 1 with this impl, this
+                    // means the client MUST provide the pinUvAuthProtocol
+                    // version with the extension request.
+                    if (hmsget.pinUvAuthProtocol == null or hmsget.pinUvAuthProtocol.? != .V2) {
+                        std.log.err("pinUvAuthProtocol not specified or supported", .{});
+                        return .ctap2_err_pin_auth_invalid;
+                    }
+
+                    // If "up" is set to false, authenticator returns
+                    // CTAP2_ERR_UNSUPPORTED_OPTION
+                    if (!up) {
+                        std.log.err("up = false", .{});
+                        return .ctap2_err_unsupported_option;
+                    }
+
+                    const hms_value = hmsget.generate(
+                        &stat,
+                        auth,
+                        &entry,
+                        uv_response, // uv is checked internally
+                    );
+
+                    if (stat != .ctap1_err_success) {
+                        std.log.err("hmac-secret-mc failed: {any}", .{stat});
+                        return stat;
+                    }
+
+                    if (hms_value) |v| {
+                        extensions.@"hmac-secret-mc" = .{ .output = v };
+                    }
+                },
+                else => {},
+            }
+        }
+    }
+
     // Depending on the key (e.g., ES256 vs ML-DSA) the key siza varies between 256 bytes
     // and > 4KB.
     var cose_public_key = std.Io.Writer.Allocating.init(auth.allocator);
@@ -536,8 +586,8 @@ pub fn authenticatorMakeCredential(
 
     const stmt = switch (auth.attestation) {
         .Self => blk: {
-            const ad = auth_data.encode() catch {
-                std.log.err("makeCredential: auth data encoding error", .{});
+            const ad = auth_data.encode() catch |e| {
+                std.log.err("makeCredential: auth data encoding error ({any})", .{e});
                 return fido.ctap.StatusCodes.ctap1_err_other;
             };
 

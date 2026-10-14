@@ -76,6 +76,7 @@ pub fn main(init: std.process.Init) !void {
             .extensions = &.{
                 "credProtect",
                 "hmac-secret",
+                "hmac-secret-mc",
             },
             // This should be unique for all models of the same authenticator.
             .aaguid = "\x6f\x15\x82\x74\xaa\xb6\x44\x3d\x9b\xcf\x8a\x3f\x69\x29\x7c\x88".*,
